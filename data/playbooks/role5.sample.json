@@ -1,0 +1,25 @@
+{
+  "id": "role5.sample",
+  "title": "Role 5 Sample",
+  "quests": [
+    {
+      "id": "q-gold-1500",
+      "title": "Витрать 1500 золота до 10:00",
+      "type": "GoldSpent",
+      "target": 1500
+    },
+    {
+      "id": "q-denies-8",
+      "title": "Зроби 8 denies на лайні",
+      "type": "Denies",
+      "target": 8
+    },
+    {
+      "id": "q-ward-offlane-camp",
+      "title": "Займи позицію біля offlane camp",
+      "type": "PositionInZone",
+      "target": 1,
+      "zoneId": "offlane_camp_radiant"
+    }
+  ]
+}

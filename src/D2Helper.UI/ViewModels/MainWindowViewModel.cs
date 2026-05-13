@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using D2Helper.Core;
 using D2Helper.Core.Gsi;
 using D2Helper.Core.Models;
+using D2Helper.Core.Quests;
 using D2Helper.Data.OpenDota;
 using D2Helper.Data.Steam;
 using D2Helper.Data.Stratz;
@@ -48,8 +49,21 @@ public partial class MainWindowViewModel : ObservableObject
             .Subscribe(gs => Dispatcher.UIThread.Post(() => UpdateGsiSnapshot(gs)));
         _gsi.Start();
 
-        // Дефолтний приклад — Артур (Arteezy). Замінити на свій.
-        SteamIdInput = "86745912";
+        try
+        {
+            var playbook = PlaybookLoader.LoadRole5Sample();
+            var zones = ZoneCatalog.LoadDefault();
+            IQuestRunner runner = new QuestRunner(zones);
+            runner
+                .Run(_gsi.States.Sample(TimeSpan.FromMilliseconds(250)), playbook)
+                .Subscribe(q => Dispatcher.UIThread.Post(() => UpdateQuestProgress(q)));
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Quest engine init failed: " + ex.Message;
+        }
+
+        SteamIdInput = "76561198360734673";
     }
 
     [ObservableProperty] private string _gsiStatus = "GSI: starting…";
@@ -109,6 +123,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _stratzError = "";
 
     public ObservableCollection<RecentMatch> RecentMatches { get; } = new();
+    public ObservableCollection<QuestProgress> ActiveQuests { get; } = new();
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -201,5 +216,11 @@ public partial class MainWindowViewModel : ObservableObject
             foreach (var m in matches) RecentMatches.Add(m);
         }
         catch (Exception ex) { OpenDotaError += " | Recent: " + ex.Message; }
+    }
+
+    private void UpdateQuestProgress(IReadOnlyList<QuestProgress> quests)
+    {
+        ActiveQuests.Clear();
+        foreach (var q in quests) ActiveQuests.Add(q);
     }
 }

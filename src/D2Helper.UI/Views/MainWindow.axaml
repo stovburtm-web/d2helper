@@ -2,18 +2,54 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:D2Helper.UI.ViewModels"
         xmlns:m="using:D2Helper.Core.Models"
+        xmlns:q="using:D2Helper.Core.Quests"
         x:Class="D2Helper.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="D2Helper" Width="1000" Height="700"
-        MinWidth="720" MinHeight="500"
-        Background="#1A1A1F">
+        Title="D2Helper" Width="1120" Height="760"
+        MinWidth="760" MinHeight="560"
+        Background="#171A1F">
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#2E3A4E"/>
+      <Setter Property="Foreground" Value="#ECF2FF"/>
+      <Setter Property="BorderBrush" Value="#40536F"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Opacity" Value="1"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.16"/>
+          <BrushTransition Property="Background" Duration="0:0:0.16"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="#39547A"/>
+      <Setter Property="Opacity" Value="0.93"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="14"/>
+      <Setter Property="Background" Value="#222733"/>
+      <Setter Property="Opacity" Value="1"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.card:pointerover">
+      <Setter Property="Opacity" Value="0.96"/>
+    </Style>
+  </Window.Styles>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
   <Grid RowDefinitions="Auto,Auto,*" Margin="16">
 
     <!-- Header -->
-    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+    <WrapPanel Grid.Row="0" Orientation="Horizontal">
       <TextBlock Text="D2Helper" FontSize="24" FontWeight="Bold" Foreground="#E0E0E0"/>
-      <TextBlock Text="MVP — OpenDota + Stratz + GSI" FontSize="12" Foreground="#888" VerticalAlignment="Bottom"/>
-      <Border Background="#0E2A1A" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+      <TextBlock Margin="10,0,0,0" Text="MVP — OpenDota + Stratz + GSI" FontSize="12" Foreground="#9AA6BD" VerticalAlignment="Bottom"/>
+      <Border Margin="10,0,0,0" Background="#0F3525" CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="10">
           <TextBlock Text="{Binding GsiStatus}" Foreground="#9BE7B6" FontSize="11"/>
           <TextBlock Text="{Binding GsiClock}"  Foreground="#9BE7B6" FontSize="11"/>
@@ -21,65 +57,66 @@
           <TextBlock Text="{Binding GsiHero}"   Foreground="#9BE7B6" FontSize="11"/>
         </StackPanel>
       </Border>
-      <Button Content="Setup GSI cfg" Padding="10,3" FontSize="11"
+            <Button Margin="10,0,0,0" Content="Setup GSI cfg" Padding="10,3" FontSize="11"
               Command="{Binding SetupGsiCommand}"/>
-      <Button Content="Remove GSI cfg" Padding="10,3" FontSize="11"
+            <Button Margin="8,0,0,0" Content="Remove GSI cfg" Padding="10,3" FontSize="11"
               Command="{Binding RemoveGsiCommand}"/>
-    </StackPanel>
-    <Grid Grid.Row="1" Margin="0,12,0,12" ColumnDefinitions="Auto,*,Auto,Auto">
-      <Button Grid.Column="0" Content="Sign in with Steam" Padding="14,8" Margin="0,0,8,0"
+    </WrapPanel>
+
+          <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
+      <Button Content="Sign in with Steam" Padding="14,8"
               Command="{Binding SignInWithSteamCommand}"
               IsEnabled="{Binding !IsLoading}"/>
-      <TextBox Grid.Column="1" Text="{Binding SteamIdInput, Mode=TwoWay}"
+            <TextBox Margin="8,0,0,0" Text="{Binding SteamIdInput, Mode=TwoWay}" MinWidth="260"
                Watermark="Або введи Steam ID руками (64-біт / 32-біт account id)"
                Padding="10"/>
-      <Button Grid.Column="2" Content="Завантажити" Margin="8,0,0,0" Padding="14,8"
+            <Button Margin="8,0,0,0" Content="Завантажити" Padding="14,8"
               Command="{Binding LoadCommand}"
               IsEnabled="{Binding !IsLoading}"/>
-      <TextBlock Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center"
-                 Text="{Binding StatusMessage}" Foreground="#AAA"/>
-    </Grid>
+      <SelectableTextBlock Margin="4,6,0,0" VerticalAlignment="Center" MaxWidth="520"
+                           Text="{Binding StatusMessage}" Foreground="#C2C9D6" TextWrapping="Wrap"/>
+    </WrapPanel>
 
     <!-- Body -->
-    <Grid Grid.Row="2" RowDefinitions="Auto,*" ColumnDefinitions="*,*">
+    <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" Margin="0,10,0,0">
 
-      <!-- OpenDota card -->
-      <Border Grid.Row="0" Grid.Column="0" Padding="14" Margin="0,0,8,8"
-              Background="#26262E" CornerRadius="8">
-        <StackPanel Spacing="6">
-          <TextBlock Text="OpenDota" FontWeight="Bold" Foreground="#9AC0FF"/>
-          <TextBlock Text="{Binding OpenDotaName}" FontSize="18" Foreground="#FFF"/>
-          <TextBlock Text="{Binding OpenDotaRank}" Foreground="#DDD"/>
-          <TextBlock Text="{Binding OpenDotaWinRate}" Foreground="#DDD"/>
-          <SelectableTextBlock Text="{Binding OpenDotaError}" Foreground="#FF8888" TextWrapping="Wrap"/>
-        </StackPanel>
-      </Border>
+      <WrapPanel Grid.Row="0" Orientation="Horizontal">
+        <!-- OpenDota card -->
+        <Border Classes="card" MinWidth="360" MaxWidth="560" Width="540" Margin="0,0,0,8">
+          <StackPanel Spacing="6">
+            <TextBlock Text="OpenDota" FontWeight="Bold" Foreground="#8FC1FF"/>
+            <TextBlock Text="{Binding OpenDotaName}" FontSize="18" Foreground="#FFFFFF"/>
+            <TextBlock Text="{Binding OpenDotaRank}" Foreground="#DFE5F0"/>
+            <TextBlock Text="{Binding OpenDotaWinRate}" Foreground="#DFE5F0"/>
+            <SelectableTextBlock Text="{Binding OpenDotaError}" Foreground="#FF9E9E" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
 
-      <!-- Stratz card -->
-      <Border Grid.Row="0" Grid.Column="1" Padding="14" Margin="8,0,0,8"
-              Background="#26262E" CornerRadius="8">
-        <StackPanel Spacing="6">
-          <TextBlock Text="Stratz" FontWeight="Bold" Foreground="#FFC59A"/>
-          <TextBlock Text="{Binding StratzName}" FontSize="18" Foreground="#FFF"/>
-          <TextBlock Text="{Binding StratzRank}" Foreground="#DDD"/>
-          <TextBlock Text="{Binding StratzWinRate}" Foreground="#DDD"/>
-          <TextBlock Text="{Binding StratzBehavior}" Foreground="#DDD"/>
-          <TextBlock Text="{Binding StratzImp}" Foreground="#DDD"/>
-          <TextBlock Text="{Binding StratzLastMatch}" Foreground="#AAA" FontSize="11"/>
-          <SelectableTextBlock Text="{Binding StratzError}" Foreground="#FF8888" TextWrapping="Wrap"/>
-        </StackPanel>
-      </Border>
+        <!-- Stratz card -->
+        <Border Classes="card" MinWidth="360" MaxWidth="560" Width="540" Margin="0,0,0,8">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Stratz" FontWeight="Bold" Foreground="#FFC59A"/>
+            <TextBlock Text="{Binding StratzName}" FontSize="18" Foreground="#FFFFFF"/>
+            <TextBlock Text="{Binding StratzRank}" Foreground="#DFE5F0"/>
+            <TextBlock Text="{Binding StratzWinRate}" Foreground="#DFE5F0"/>
+            <TextBlock Text="{Binding StratzBehavior}" Foreground="#DFE5F0"/>
+            <TextBlock Text="{Binding StratzImp}" Foreground="#DFE5F0"/>
+            <TextBlock Text="{Binding StratzLastMatch}" Foreground="#AAB5C8" FontSize="11"/>
+            <SelectableTextBlock Text="{Binding StratzError}" Foreground="#FF9E9E" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+      </WrapPanel>
 
       <!-- Recent matches table -->
-      <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-              Background="#26262E" CornerRadius="8" Padding="0">
+      <Border Classes="card" Grid.Row="1" Padding="0">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Margin="14,12,14,8"
                      Text="Останні матчі (OpenDota)" FontWeight="Bold" Foreground="#9AC0FF"/>
           <DataGrid ItemsSource="{Binding RecentMatches}"
                     AutoGenerateColumns="False" CanUserSortColumns="True"
                     GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                    Background="Transparent" Foreground="#EEE">
+                    Background="Transparent" Foreground="#E6ECF6"
+                    MinHeight="220">
             <DataGrid.Columns>
               <DataGridTextColumn Header="Hero"   Binding="{Binding HeroName, x:DataType=m:RecentMatch}" Width="160"/>
               <DataGridTextColumn Header="Result" Binding="{Binding Result, x:DataType=m:RecentMatch}" Width="70"/>
@@ -94,6 +131,27 @@
         </DockPanel>
       </Border>
 
+      <!-- Quest engine table -->
+      <Border Classes="card" Grid.Row="2" Margin="0,8,0,0" Padding="0">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Margin="14,12,14,8"
+                     Text="Role 5 sample quests (prototype)" FontWeight="Bold" Foreground="#C4F1A8"/>
+          <DataGrid ItemsSource="{Binding ActiveQuests}"
+                    AutoGenerateColumns="False" CanUserSortColumns="True"
+                    GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                    Background="Transparent" Foreground="#E6ECF6"
+                    MaxHeight="170">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Quest" Binding="{Binding Title, x:DataType=q:QuestProgress}" Width="*"/>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type, x:DataType=q:QuestProgress}" Width="130"/>
+              <DataGridTextColumn Header="Progress" Binding="{Binding ProgressText, x:DataType=q:QuestProgress}" Width="120"/>
+              <DataGridTextColumn Header="Done" Binding="{Binding IsCompleted, x:DataType=q:QuestProgress}" Width="90"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </Border>
+
     </Grid>
   </Grid>
+  </ScrollViewer>
 </Window>

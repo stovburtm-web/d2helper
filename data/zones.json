@@ -1,0 +1,28 @@
+{
+  "zones": [
+    {
+      "id": "offlane_camp_radiant",
+      "name": "Radiant Offlane Camp",
+      "minX": -4900,
+      "maxX": -3500,
+      "minY": 500,
+      "maxY": 1900
+    },
+    {
+      "id": "midlane_t1_radiant",
+      "name": "Radiant Mid T1",
+      "minX": -1500,
+      "maxX": -300,
+      "minY": -300,
+      "maxY": 1100
+    },
+    {
+      "id": "midlane_t1_dire",
+      "name": "Dire Mid T1",
+      "minX": 300,
+      "maxX": 1500,
+      "minY": -1100,
+      "maxY": 300
+    }
+  ]
+}
