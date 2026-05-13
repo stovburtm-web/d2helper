@@ -1,0 +1,19 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+.idea/
+out/
+TestResults/
+*.log
+*.lock.json
+.DS_Store
+
+# Local secrets / API tokens — NEVER commit
+secrets/
+*.env
+*.env.local
+appsettings.Local.json
+appsettings.Development.json
+

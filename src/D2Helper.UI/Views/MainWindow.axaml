@@ -1,0 +1,99 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:D2Helper.UI.ViewModels"
+        xmlns:m="using:D2Helper.Core.Models"
+        x:Class="D2Helper.UI.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="D2Helper" Width="1000" Height="700"
+        MinWidth="720" MinHeight="500"
+        Background="#1A1A1F">
+  <Grid RowDefinitions="Auto,Auto,*" Margin="16">
+
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+      <TextBlock Text="D2Helper" FontSize="24" FontWeight="Bold" Foreground="#E0E0E0"/>
+      <TextBlock Text="MVP — OpenDota + Stratz + GSI" FontSize="12" Foreground="#888" VerticalAlignment="Bottom"/>
+      <Border Background="#0E2A1A" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="{Binding GsiStatus}" Foreground="#9BE7B6" FontSize="11"/>
+          <TextBlock Text="{Binding GsiClock}"  Foreground="#9BE7B6" FontSize="11"/>
+          <TextBlock Text="{Binding GsiMatch}"  Foreground="#9BE7B6" FontSize="11"/>
+          <TextBlock Text="{Binding GsiHero}"   Foreground="#9BE7B6" FontSize="11"/>
+        </StackPanel>
+      </Border>
+      <Button Content="Setup GSI cfg" Padding="10,3" FontSize="11"
+              Command="{Binding SetupGsiCommand}"/>
+      <Button Content="Remove GSI cfg" Padding="10,3" FontSize="11"
+              Command="{Binding RemoveGsiCommand}"/>
+    </StackPanel>
+    <Grid Grid.Row="1" Margin="0,12,0,12" ColumnDefinitions="Auto,*,Auto,Auto">
+      <Button Grid.Column="0" Content="Sign in with Steam" Padding="14,8" Margin="0,0,8,0"
+              Command="{Binding SignInWithSteamCommand}"
+              IsEnabled="{Binding !IsLoading}"/>
+      <TextBox Grid.Column="1" Text="{Binding SteamIdInput, Mode=TwoWay}"
+               Watermark="Або введи Steam ID руками (64-біт / 32-біт account id)"
+               Padding="10"/>
+      <Button Grid.Column="2" Content="Завантажити" Margin="8,0,0,0" Padding="14,8"
+              Command="{Binding LoadCommand}"
+              IsEnabled="{Binding !IsLoading}"/>
+      <TextBlock Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center"
+                 Text="{Binding StatusMessage}" Foreground="#AAA"/>
+    </Grid>
+
+    <!-- Body -->
+    <Grid Grid.Row="2" RowDefinitions="Auto,*" ColumnDefinitions="*,*">
+
+      <!-- OpenDota card -->
+      <Border Grid.Row="0" Grid.Column="0" Padding="14" Margin="0,0,8,8"
+              Background="#26262E" CornerRadius="8">
+        <StackPanel Spacing="6">
+          <TextBlock Text="OpenDota" FontWeight="Bold" Foreground="#9AC0FF"/>
+          <TextBlock Text="{Binding OpenDotaName}" FontSize="18" Foreground="#FFF"/>
+          <TextBlock Text="{Binding OpenDotaRank}" Foreground="#DDD"/>
+          <TextBlock Text="{Binding OpenDotaWinRate}" Foreground="#DDD"/>
+          <SelectableTextBlock Text="{Binding OpenDotaError}" Foreground="#FF8888" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Stratz card -->
+      <Border Grid.Row="0" Grid.Column="1" Padding="14" Margin="8,0,0,8"
+              Background="#26262E" CornerRadius="8">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Stratz" FontWeight="Bold" Foreground="#FFC59A"/>
+          <TextBlock Text="{Binding StratzName}" FontSize="18" Foreground="#FFF"/>
+          <TextBlock Text="{Binding StratzRank}" Foreground="#DDD"/>
+          <TextBlock Text="{Binding StratzWinRate}" Foreground="#DDD"/>
+          <TextBlock Text="{Binding StratzBehavior}" Foreground="#DDD"/>
+          <TextBlock Text="{Binding StratzImp}" Foreground="#DDD"/>
+          <TextBlock Text="{Binding StratzLastMatch}" Foreground="#AAA" FontSize="11"/>
+          <SelectableTextBlock Text="{Binding StratzError}" Foreground="#FF8888" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Recent matches table -->
+      <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+              Background="#26262E" CornerRadius="8" Padding="0">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Margin="14,12,14,8"
+                     Text="Останні матчі (OpenDota)" FontWeight="Bold" Foreground="#9AC0FF"/>
+          <DataGrid ItemsSource="{Binding RecentMatches}"
+                    AutoGenerateColumns="False" CanUserSortColumns="True"
+                    GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                    Background="Transparent" Foreground="#EEE">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Hero"   Binding="{Binding HeroName, x:DataType=m:RecentMatch}" Width="160"/>
+              <DataGridTextColumn Header="Result" Binding="{Binding Result, x:DataType=m:RecentMatch}" Width="70"/>
+              <DataGridTextColumn Header="K/D/A"  Binding="{Binding KdaString, x:DataType=m:RecentMatch}" Width="90"/>
+              <DataGridTextColumn Header="GPM"    Binding="{Binding GoldPerMin, x:DataType=m:RecentMatch}" Width="60"/>
+              <DataGridTextColumn Header="XPM"    Binding="{Binding XpPerMin, x:DataType=m:RecentMatch}" Width="60"/>
+              <DataGridTextColumn Header="Mode"   Binding="{Binding GameMode, x:DataType=m:RecentMatch}" Width="140"/>
+              <DataGridTextColumn Header="When"   Binding="{Binding StartTime, x:DataType=m:RecentMatch}" Width="180"/>
+              <DataGridTextColumn Header="MatchID" Binding="{Binding MatchId, x:DataType=m:RecentMatch}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </Border>
+
+    </Grid>
+  </Grid>
+</Window>
