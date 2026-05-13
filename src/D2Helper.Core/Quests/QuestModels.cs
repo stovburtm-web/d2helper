@@ -8,6 +8,7 @@ public enum QuestType
     Denies,
     WardsPlaced,
     PositionInZone,
+    LastHits,
 }
 
 public sealed record QuestDefinition

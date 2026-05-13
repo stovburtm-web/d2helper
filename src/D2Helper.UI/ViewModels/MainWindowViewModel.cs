@@ -53,6 +53,9 @@ public partial class MainWindowViewModel : ObservableObject
         {
             var playbook = PlaybookLoader.LoadRole5Sample();
             var zones = ZoneCatalog.LoadDefault();
+            // Початковий рендер: показуємо квести з нульовим прогресом ще до першого GSI-стейту.
+            var initial = QuestProgressCalculator.Calculate(playbook, zones, new GameStateSnapshot());
+            UpdateQuestProgress(initial);
             IQuestRunner runner = new QuestRunner(zones);
             runner
                 .Run(_gsi.States.Sample(TimeSpan.FromMilliseconds(250)), playbook)

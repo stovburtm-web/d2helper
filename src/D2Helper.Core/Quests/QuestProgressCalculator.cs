@@ -5,6 +5,7 @@ public sealed record GameStateSnapshot
     public int GoldSpent { get; init; }
     public int Denies { get; init; }
     public int WardsPlaced { get; init; }
+    public int LastHits { get; init; }
     public double? PositionX { get; init; }
     public double? PositionY { get; init; }
 }
@@ -22,6 +23,7 @@ public static class QuestProgressCalculator
                 QuestType.GoldSpent => snapshot.GoldSpent,
                 QuestType.Denies => snapshot.Denies,
                 QuestType.WardsPlaced => snapshot.WardsPlaced,
+                QuestType.LastHits => snapshot.LastHits,
                 QuestType.PositionInZone => InZone(q, zones, snapshot) ? 1 : 0,
                 _ => 0,
             };

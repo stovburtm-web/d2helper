@@ -1,12 +1,12 @@
 {
   "id": "role5.sample",
-  "title": "Role 5 Sample",
+  "title": "Role 5 Sample (demo)",
   "quests": [
     {
-      "id": "q-gold-1500",
-      "title": "Витрать 1500 золота до 10:00",
-      "type": "GoldSpent",
-      "target": 1500
+      "id": "q-lasthits-20",
+      "title": "Набий 20 ластхітів",
+      "type": "LastHits",
+      "target": 20
     },
     {
       "id": "q-denies-8",
@@ -15,11 +15,10 @@
       "target": 8
     },
     {
-      "id": "q-ward-offlane-camp",
-      "title": "Займи позицію біля offlane camp",
-      "type": "PositionInZone",
-      "target": 1,
-      "zoneId": "offlane_camp_radiant"
+      "id": "q-lasthits-50",
+      "title": "50 ластхітів до 10:00",
+      "type": "LastHits",
+      "target": 50
     }
   ]
 }
