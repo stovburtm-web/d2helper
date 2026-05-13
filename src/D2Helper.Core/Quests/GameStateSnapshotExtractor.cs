@@ -1,4 +1,3 @@
-using System.Globalization;
 using Dota2GSI;
 
 namespace D2Helper.Core.Quests;
@@ -7,17 +6,38 @@ internal static class GameStateSnapshotExtractor
 {
     public static GameStateSnapshot Extract(GameState gs)
     {
-        // Прямий доступ до полів Dota2GSI: LastHits/Denies приходять і в демці.
-        // WardsPlaced / ItemGoldSpent — spectator-only, тож у звичайній грі = 0.
+        // Прямий доступ до полів Dota2GSI: усе нижче приходить і для свого
+        // гравця в ranked-матчі (на відміну від HeroDamage / WardsPlaced /
+        // RunesActivated — вони spectator-only).
         var player = gs.Player?.LocalPlayer;
+        var hero = gs.Hero?.LocalPlayer;
+        var items = gs.Items?.LocalPlayer;
+
+        // Збираємо назви предметів з інвентарю + стешу + нейтралки + телепорта.
+        // "empty" слоти пропускаємо, бо інакше HasItem-перевірка завжди true.
+        var names = new List<string>(12);
+        if (items != null)
+        {
+            foreach (var i in items.Inventory) if (!string.IsNullOrEmpty(i.Name) && i.Name != "empty") names.Add(i.Name);
+            foreach (var i in items.Stash) if (!string.IsNullOrEmpty(i.Name) && i.Name != "empty") names.Add(i.Name);
+            if (!string.IsNullOrEmpty(items.Neutral?.Name) && items.Neutral.Name != "empty") names.Add(items.Neutral.Name);
+            if (!string.IsNullOrEmpty(items.Teleport?.Name) && items.Teleport.Name != "empty") names.Add(items.Teleport.Name);
+        }
+
         return new GameStateSnapshot
         {
+            ClockTime = gs.Map?.ClockTime ?? 0,
+            Gold = player?.Gold ?? 0,
+            Level = hero?.Level ?? 0,
+            Xp = hero?.Experience ?? 0,
             GoldSpent = player?.ItemGoldSpent ?? 0,
             Denies = player?.Denies ?? 0,
             WardsPlaced = player?.WardsPlaced ?? 0,
             LastHits = player?.LastHits ?? 0,
-            PositionX = null,
-            PositionY = null,
+            Items = names,
+            PositionX = hero?.Location.X,
+            PositionY = hero?.Location.Y,
         };
     }
 }
+

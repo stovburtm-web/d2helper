@@ -11,12 +11,17 @@ public static class PlaybookLoader
         Converters = { new JsonStringEnumConverter() },
     };
 
-    public static PlaybookDefinition LoadRole5Sample()
+    public static PlaybookDefinition LoadRole5Sample() => LoadFile("role5.sample.json");
+
+    public static PlaybookDefinition LoadMidMvp() => LoadFile("midlane.mvp.json");
+
+    private static PlaybookDefinition LoadFile(string fileName)
     {
-        var path = DataFileLocator.FindFromAppBase(Path.Combine("data", "playbooks", "role5.sample.json"));
-        if (path is null) throw new FileNotFoundException("role5.sample.json not found");
+        var path = DataFileLocator.FindFromAppBase(Path.Combine("data", "playbooks", fileName));
+        if (path is null) throw new FileNotFoundException(fileName + " not found");
         var json = File.ReadAllText(path);
         var playbook = JsonSerializer.Deserialize<PlaybookDefinition>(json, JsonOpts);
-        return playbook ?? throw new InvalidDataException("Cannot parse role5.sample.json");
+        return playbook ?? throw new InvalidDataException("Cannot parse " + fileName);
     }
 }
+

@@ -14,9 +14,10 @@ public sealed class QuestRunner : IQuestRunner
 
     public IObservable<IReadOnlyList<QuestProgress>> Run(IObservable<GameState> states, PlaybookDefinition playbook)
     {
+        var scheduler = new QuestScheduler();
         return states
             .Select(GameStateSnapshotExtractor.Extract)
-            .Select(s => QuestProgressCalculator.Calculate(playbook, _zones, s))
+            .Select(s => scheduler.Tick(playbook, s))
             .DistinctUntilChanged(ProgressComparer.Instance);
     }
 
@@ -34,6 +35,7 @@ public sealed class QuestRunner : IQuestRunner
                 if (x[i].Current != y[i].Current) return false;
                 if (x[i].Target != y[i].Target) return false;
                 if (x[i].IsCompleted != y[i].IsCompleted) return false;
+                if (x[i].Status != y[i].Status) return false;
             }
             return true;
         }
@@ -47,8 +49,10 @@ public sealed class QuestRunner : IQuestRunner
                 hash.Add(item.Current);
                 hash.Add(item.Target);
                 hash.Add(item.IsCompleted);
+                hash.Add(item.Status);
             }
             return hash.ToHashCode();
         }
     }
 }
+

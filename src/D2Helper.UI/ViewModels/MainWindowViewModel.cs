@@ -51,15 +51,16 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var playbook = PlaybookLoader.LoadRole5Sample();
+            var playbook = PlaybookLoader.LoadMidMvp();
             var zones = ZoneCatalog.LoadDefault();
             // Початковий рендер: показуємо квести з нульовим прогресом ще до першого GSI-стейту.
-            var initial = QuestProgressCalculator.Calculate(playbook, zones, new GameStateSnapshot());
-            UpdateQuestProgress(initial);
+            var initialScheduler = new QuestScheduler();
+            var initial = initialScheduler.Tick(playbook, new GameStateSnapshot());
+            UpdateQuestProgress(QuestScheduler.SelectVisible(initial));
             IQuestRunner runner = new QuestRunner(zones);
             runner
                 .Run(_gsi.States.Sample(TimeSpan.FromMilliseconds(250)), playbook)
-                .Subscribe(q => Dispatcher.UIThread.Post(() => UpdateQuestProgress(q)));
+                .Subscribe(q => Dispatcher.UIThread.Post(() => UpdateQuestProgress(QuestScheduler.SelectVisible(q))));
         }
         catch (Exception ex)
         {

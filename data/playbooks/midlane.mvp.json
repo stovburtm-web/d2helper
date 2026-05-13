@@ -1,0 +1,83 @@
+{
+  "id": "midlane.mvp",
+  "title": "Mid MVP (Stage 3)",
+  "quests": [
+    {
+      "id": "q-deny-ranged",
+      "title": "Денай ranged крипа першої пачки",
+      "type": "Denies",
+      "target": 1,
+      "fireAtClock": 0,
+      "dueAtClock": 55
+    },
+    {
+      "id": "q-bottle",
+      "title": "Купи bottle до 1:00",
+      "type": "HasItem",
+      "target": 1,
+      "itemId": "item_bottle",
+      "fireAtClock": 30,
+      "dueAtClock": 60
+    },
+    {
+      "id": "q-rune-2min",
+      "title": "Забери руну на 2:00",
+      "type": "PickRune",
+      "target": 1,
+      "goldJumpThreshold": 40,
+      "fireAtClock": 110,
+      "dueAtClock": 135
+    },
+    {
+      "id": "q-lh-5min",
+      "title": "20 ластхітів до 5:00",
+      "type": "LastHits",
+      "target": 20,
+      "fireAtClock": 180,
+      "dueAtClock": 300
+    },
+    {
+      "id": "q-rune-4min",
+      "title": "Забери руну на 4:00",
+      "type": "PickRune",
+      "target": 1,
+      "goldJumpThreshold": 40,
+      "fireAtClock": 230,
+      "dueAtClock": 255
+    },
+    {
+      "id": "q-obs-ward",
+      "title": "Май обзервер до 4:30",
+      "type": "HasItem",
+      "target": 1,
+      "itemId": "item_ward_observer",
+      "fireAtClock": 240,
+      "dueAtClock": 270
+    },
+    {
+      "id": "q-lvl6",
+      "title": "Май 6 рівень до 6:00",
+      "type": "LevelReach",
+      "target": 6,
+      "fireAtClock": 330,
+      "dueAtClock": 360
+    },
+    {
+      "id": "q-wisdom",
+      "title": "Забери wisdom на 7:00",
+      "type": "WisdomRune",
+      "target": 1,
+      "xpJumpThreshold": 100,
+      "fireAtClock": 390,
+      "dueAtClock": 435
+    },
+    {
+      "id": "q-lh-10min",
+      "title": "40 ластів+денаїв до 10:00",
+      "type": "LastHitsPlusDenies",
+      "target": 40,
+      "fireAtClock": 420,
+      "dueAtClock": 600
+    }
+  ]
+}
