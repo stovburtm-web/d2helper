@@ -37,6 +37,8 @@ internal static class GameStateSnapshotExtractor
             Items = names,
             PositionX = hero?.Location.X,
             PositionY = hero?.Location.Y,
+            MatchId = gs.Map?.MatchID is long mid && mid > 0 ? mid : null,
+            HeroName = string.IsNullOrEmpty(hero?.Name) ? null : hero!.Name,
         };
     }
 }

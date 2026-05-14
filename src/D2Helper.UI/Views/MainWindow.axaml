@@ -43,7 +43,7 @@
   </Window.Styles>
 
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-  <Grid RowDefinitions="Auto,Auto,*" Margin="16">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
 
     <!-- Header -->
     <WrapPanel Grid.Row="0" Orientation="Horizontal">
@@ -152,6 +152,29 @@
       </Border>
 
     </Grid>
+
+  <!-- Quest history -->
+  <Border Classes="card" Grid.Row="3" Margin="0,8,0,0" Padding="0">
+    <DockPanel>
+      <TextBlock DockPanel.Dock="Top" Margin="14,12,14,8"
+                 Text="Історія квестів (останні 100)" FontWeight="Bold" Foreground="#FFD58A"/>
+      <DataGrid ItemsSource="{Binding QuestHistory}"
+                AutoGenerateColumns="False" CanUserSortColumns="True"
+                GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                Background="Transparent" Foreground="#E6ECF6"
+                MaxHeight="260">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Коли" Binding="{Binding FinishedAtUtc, x:DataType=q:QuestRunRecord, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160"/>
+          <DataGridTextColumn Header="Quest" Binding="{Binding Title, x:DataType=q:QuestRunRecord}" Width="*"/>
+          <DataGridTextColumn Header="Status" Binding="{Binding FinalStatus, x:DataType=q:QuestRunRecord}" Width="90"/>
+          <DataGridTextColumn Header="Grade" Binding="{Binding Grade, x:DataType=q:QuestRunRecord}" Width="80"/>
+          <DataGridTextColumn Header="Result" Binding="{Binding FinalCurrent, x:DataType=q:QuestRunRecord}" Width="70"/>
+          <DataGridTextColumn Header="Hero" Binding="{Binding HeroName, x:DataType=q:QuestRunRecord}" Width="140"/>
+          <DataGridTextColumn Header="Match" Binding="{Binding MatchId, x:DataType=q:QuestRunRecord}" Width="120"/>
+        </DataGrid.Columns>
+      </DataGrid>
+    </DockPanel>
+  </Border>
   </Grid>
   </ScrollViewer>
 </Window>

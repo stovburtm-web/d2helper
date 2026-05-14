@@ -10,6 +10,7 @@ using D2Helper.Core.Gsi;
 using D2Helper.Core.Models;
 using D2Helper.Core.Quests;
 using D2Helper.Data.OpenDota;
+using D2Helper.Data.Persistence;
 using D2Helper.Data.Steam;
 using D2Helper.Data.Stratz;
 using Dota2GSI;
@@ -22,6 +23,8 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly StratzClient _stratz;
     private readonly SteamOpenIdService _steamAuth;
     private readonly GameStateBus _gsi;
+    private readonly QuestRunRepository? _questRuns;
+    private readonly string _sessionId = Guid.NewGuid().ToString("N");
 
     public MainWindowViewModel()
     {
@@ -57,10 +60,45 @@ public partial class MainWindowViewModel : ObservableObject
             var initialScheduler = new QuestScheduler();
             var initial = initialScheduler.Tick(playbook, new GameStateSnapshot());
             UpdateQuestProgress(QuestScheduler.SelectVisible(initial));
+
+            // SQLite історія квестів. Якщо ініціалізація БД зламалась — не блокуємо UI.
+            QuestHistoryTracker? tracker = null;
+            try
+            {
+                var db = new AppDatabase();
+                db.Initialize();
+                _questRuns = new QuestRunRepository(db);
+                tracker = new QuestHistoryTracker(_sessionId, playbook.Id);
+                ReloadQuestHistory();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Quest history DB init failed: " + ex.Message;
+            }
+
             IQuestRunner runner = new QuestRunner(zones);
             runner
                 .Run(_gsi.States.Sample(TimeSpan.FromMilliseconds(250)), playbook)
-                .Subscribe(q => Dispatcher.UIThread.Post(() => UpdateQuestProgress(QuestScheduler.SelectVisible(q))));
+                .Subscribe(tick =>
+                {
+                    // 1) запис в історію — поза UI-потоком, бо SQLite I/O.
+                    if (tracker is not null && _questRuns is not null)
+                    {
+                        var finalized = tracker.OnTick(
+                            tick.Snapshot, tick.Quests,
+                            tick.Snapshot.MatchId, tick.Snapshot.HeroName);
+                        if (finalized.Count > 0)
+                        {
+                            foreach (var rec in finalized)
+                            {
+                                try { _questRuns.Add(rec); } catch { /* ignore — БД не критична */ }
+                            }
+                            Dispatcher.UIThread.Post(ReloadQuestHistory);
+                        }
+                    }
+                    // 2) UI оновлення.
+                    Dispatcher.UIThread.Post(() => UpdateQuestProgress(QuestScheduler.SelectVisible(tick.Quests)));
+                });
         }
         catch (Exception ex)
         {
@@ -128,6 +166,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<RecentMatch> RecentMatches { get; } = new();
     public ObservableCollection<QuestProgress> ActiveQuests { get; } = new();
+    public ObservableCollection<QuestRunRecord> QuestHistory { get; } = new();
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -226,5 +265,17 @@ public partial class MainWindowViewModel : ObservableObject
     {
         ActiveQuests.Clear();
         foreach (var q in quests) ActiveQuests.Add(q);
+    }
+
+    private void ReloadQuestHistory()
+    {
+        if (_questRuns is null) return;
+        try
+        {
+            var rows = _questRuns.GetRecent(100);
+            QuestHistory.Clear();
+            foreach (var r in rows) QuestHistory.Add(r);
+        }
+        catch { /* ignore */ }
     }
 }

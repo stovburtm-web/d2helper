@@ -12,38 +12,40 @@ public sealed class QuestRunner : IQuestRunner
         _zones = zones;
     }
 
-    public IObservable<IReadOnlyList<QuestProgress>> Run(IObservable<GameState> states, PlaybookDefinition playbook)
+    public IObservable<QuestTick> Run(IObservable<GameState> states, PlaybookDefinition playbook)
     {
         var scheduler = new QuestScheduler();
         return states
             .Select(GameStateSnapshotExtractor.Extract)
-            .Select(s => scheduler.Tick(playbook, s))
-            .DistinctUntilChanged(ProgressComparer.Instance);
+            .Select(s => new QuestTick(s, scheduler.Tick(playbook, s)))
+            .DistinctUntilChanged(TickComparer.Instance);
     }
 
-    private sealed class ProgressComparer : IEqualityComparer<IReadOnlyList<QuestProgress>>
+    private sealed class TickComparer : IEqualityComparer<QuestTick>
     {
-        public static readonly ProgressComparer Instance = new();
+        public static readonly TickComparer Instance = new();
 
-        public bool Equals(IReadOnlyList<QuestProgress>? x, IReadOnlyList<QuestProgress>? y)
+        public bool Equals(QuestTick? x, QuestTick? y)
         {
             if (ReferenceEquals(x, y)) return true;
-            if (x is null || y is null || x.Count != y.Count) return false;
-            for (var i = 0; i < x.Count; i++)
+            if (x is null || y is null) return false;
+            var a = x.Quests; var b = y.Quests;
+            if (a.Count != b.Count) return false;
+            for (var i = 0; i < a.Count; i++)
             {
-                if (x[i].QuestId != y[i].QuestId) return false;
-                if (x[i].Current != y[i].Current) return false;
-                if (x[i].Target != y[i].Target) return false;
-                if (x[i].IsCompleted != y[i].IsCompleted) return false;
-                if (x[i].Status != y[i].Status) return false;
+                if (a[i].QuestId != b[i].QuestId) return false;
+                if (a[i].Current != b[i].Current) return false;
+                if (a[i].Target != b[i].Target) return false;
+                if (a[i].IsCompleted != b[i].IsCompleted) return false;
+                if (a[i].Status != b[i].Status) return false;
             }
             return true;
         }
 
-        public int GetHashCode(IReadOnlyList<QuestProgress> obj)
+        public int GetHashCode(QuestTick obj)
         {
             var hash = new HashCode();
-            foreach (var item in obj)
+            foreach (var item in obj.Quests)
             {
                 hash.Add(item.QuestId);
                 hash.Add(item.Current);

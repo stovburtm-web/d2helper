@@ -13,6 +13,8 @@ public sealed record GameStateSnapshot
     public IReadOnlyList<string> Items { get; init; } = Array.Empty<string>();
     public double? PositionX { get; init; }
     public double? PositionY { get; init; }
+    public long? MatchId { get; init; }
+    public string? HeroName { get; init; }
 }
 
 public static class QuestProgressCalculator

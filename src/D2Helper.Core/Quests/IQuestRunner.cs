@@ -2,7 +2,9 @@ using Dota2GSI;
 
 namespace D2Helper.Core.Quests;
 
+public sealed record QuestTick(GameStateSnapshot Snapshot, IReadOnlyList<QuestProgress> Quests);
+
 public interface IQuestRunner
 {
-    IObservable<IReadOnlyList<QuestProgress>> Run(IObservable<GameState> states, PlaybookDefinition playbook);
+    IObservable<QuestTick> Run(IObservable<GameState> states, PlaybookDefinition playbook);
 }
