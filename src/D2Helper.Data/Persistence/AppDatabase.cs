@@ -59,13 +59,36 @@ CREATE TABLE IF NOT EXISTS quest_runs (
     clock_started   INTEGER NULL,
     clock_finished  INTEGER NULL,
     started_at_utc  TEXT NOT NULL,
-    finished_at_utc TEXT NOT NULL
+    finished_at_utc TEXT NOT NULL,
+    score_awarded   INTEGER NOT NULL DEFAULT 0,
+    streak_position INTEGER NULL
 );
 CREATE INDEX IF NOT EXISTS idx_quest_runs_finished_at
     ON quest_runs(finished_at_utc DESC);
 CREATE INDEX IF NOT EXISTS idx_quest_runs_session
     ON quest_runs(session_id);
+CREATE INDEX IF NOT EXISTS idx_quest_runs_match
+    ON quest_runs(match_id);
 ";
         cmd.ExecuteNonQuery();
+
+        // Ідемпотентна міграція для існуючих БД, створених до додавання колонок score/streak.
+        // SQLite не має IF NOT EXISTS для ALTER TABLE ADD COLUMN — ловимо помилку «duplicate column».
+        TryAddColumn(conn, "quest_runs", "score_awarded", "INTEGER NOT NULL DEFAULT 0");
+        TryAddColumn(conn, "quest_runs", "streak_position", "INTEGER NULL");
+    }
+
+    private static void TryAddColumn(SqliteConnection conn, string table, string column, string definition)
+    {
+        try
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException ex) when (ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+        {
+            // колонка вже існує — ок
+        }
     }
 }

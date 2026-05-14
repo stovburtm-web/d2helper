@@ -168,6 +168,13 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<QuestProgress> ActiveQuests { get; } = new();
     public ObservableCollection<QuestMatchGroup> QuestHistory { get; } = new();
 
+    // === Score / streak (gamification) ===
+    [ObservableProperty] private string _scoreTotal = "Score: 0";
+    [ObservableProperty] private string _scoreBreakdown = "Perfect 0 · Good 0 · Min 0 · Missed 0";
+    [ObservableProperty] private string _scoreStreak = "Longest streak: 0";
+    [ObservableProperty] private string _scoreMatches = "Matches: 0";
+    [ObservableProperty] private string _scoreCompletion = "Completion: 0%";
+
     [RelayCommand]
     private async Task LoadAsync()
     {
@@ -299,6 +306,18 @@ public partial class MainWindowViewModel : ObservableObject
 
             QuestHistory.Clear();
             foreach (var g in groups) QuestHistory.Add(g);
+
+            // Оновити агрегати (рахунок/streak/матчі) — дешеве SQL-агрегування.
+            try
+            {
+                var agg = _questRuns.GetAggregates();
+                ScoreTotal = $"Score: {agg.TotalScore}";
+                ScoreBreakdown = $"Perfect {agg.Perfect} · Good {agg.Good} · Min {agg.Min} · Missed {agg.Expired}";
+                ScoreStreak = $"Longest streak: {agg.LongestStreak}";
+                ScoreMatches = $"Matches: {agg.MatchesPlayed}";
+                ScoreCompletion = $"Completion: {agg.CompletionRate:F0}%";
+            }
+            catch { /* ignore */ }
         }
         catch { /* ignore */ }
     }

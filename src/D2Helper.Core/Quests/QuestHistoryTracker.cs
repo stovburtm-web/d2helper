@@ -15,11 +15,25 @@ public sealed class QuestHistoryTracker
     private readonly string _playbookId;
     private readonly Dictionary<string, QuestState> _state = new();
 
+    // Поточний streak — кількість Completed квестів підряд (без Expired між ними).
+    // Скидається на 0, коли будь-який квест завершується як Expired.
+    // Спостерігається фінальними подіями у порядку їх емісії (тобто за часом fire/due).
+    private int _currentStreak;
+    private int _longestStreak;
+    private int _sessionScore;
+
     public QuestHistoryTracker(string sessionId, string playbookId)
     {
         _sessionId = sessionId;
         _playbookId = playbookId;
     }
+
+    /// <summary>Поточний streak (Completed-серія) в межах сесії.</summary>
+    public int CurrentStreak => _currentStreak;
+    /// <summary>Найдовший streak за сесію.</summary>
+    public int LongestStreak => _longestStreak;
+    /// <summary>Сума балів за квести цієї сесії (Score + StreakBonus).</summary>
+    public int SessionScore => _sessionScore;
 
     private sealed class QuestState
     {
@@ -56,6 +70,22 @@ public sealed class QuestHistoryTracker
             if (!st.FinalizedToDb && (p.Status == QuestStatus.Completed || p.Status == QuestStatus.Expired))
             {
                 st.FinalizedToDb = true;
+
+                int? streakPos = null;
+                int score = 0;
+                if (p.Status == QuestStatus.Completed)
+                {
+                    _currentStreak++;
+                    streakPos = _currentStreak;
+                    if (_currentStreak > _longestStreak) _longestStreak = _currentStreak;
+                    score = ScoreCalculator.Total(p.Status, p.Grade, _currentStreak);
+                    _sessionScore += score;
+                }
+                else
+                {
+                    _currentStreak = 0;
+                }
+
                 finalized ??= new List<QuestRunRecord>();
                 finalized.Add(new QuestRunRecord
                 {
@@ -78,6 +108,8 @@ public sealed class QuestHistoryTracker
                     ClockFinished = snapshot.ClockTime,
                     StartedAtUtc = st.StartedAtUtc ?? now,
                     FinishedAtUtc = now,
+                    ScoreAwarded = score,
+                    StreakPosition = streakPos,
                 });
             }
         }

@@ -23,6 +23,7 @@ public sealed class QuestScheduler
         public int XpAtFire;
         public int LevelAtFire;
         public int BottleChargesAtFire;
+        public int RunesActivatedAtFire;
         public bool Completed;
         public int? CompletedAtClock;
     }
@@ -72,6 +73,7 @@ public sealed class QuestScheduler
                 st.XpAtFire = snapshot.Xp;
                 st.LevelAtFire = snapshot.Level;
                 st.BottleChargesAtFire = snapshot.BottleCharges;
+                st.RunesActivatedAtFire = snapshot.RunesActivated;
             }
 
             // Рахуємо поточний прогрес (продовжуємо рости навіть після min — для tiered).
@@ -181,12 +183,20 @@ public sealed class QuestScheduler
             QuestType.LevelReach => s.Level,
             QuestType.HasItem => s.Items.Contains(q.ItemId ?? "") ? 1 : 0,
             QuestType.PickRune => (
-                // 1) bottle charges стрибнули вгору (water/power picked up in bottle)
+                // 1) GSI Player.RunesActivated — точний інкремент при підборі будь-якої руни.
+                (s.RunesActivated > st.RunesActivatedAtFire) ||
+                // 2) bottle charges стрибнули вгору (water/power picked up in bottle) — fallback
                 (s.BottleCharges > st.BottleChargesAtFire) ||
-                // 2) gold-jump >= threshold (bounty rune, або у когось без bottle)
+                // 3) gold-jump >= threshold (bounty rune без bottle) — fallback для надійності
                 (s.Gold - st.GoldAtFire) >= (q.GoldJumpThreshold ?? 40)
             ) ? 1 : 0,
-            QuestType.WisdomRune => (s.Level > st.LevelAtFire) || (s.Xp - st.XpAtFire) >= (q.XpJumpThreshold ?? 100) ? 1 : 0,
+            QuestType.WisdomRune => (
+                // 1) точний сигнал — інкремент RunesActivated в вікні wisdom.
+                (s.RunesActivated > st.RunesActivatedAtFire) ||
+                // 2) level-up або XP-spike — fallback
+                (s.Level > st.LevelAtFire) ||
+                ((s.Xp - st.XpAtFire) >= (q.XpJumpThreshold ?? 100))
+            ) ? 1 : 0,
             _ => 0,
         };
     }

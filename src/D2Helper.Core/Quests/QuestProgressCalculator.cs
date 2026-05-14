@@ -12,6 +12,17 @@ public sealed record GameStateSnapshot
     public int LastHits { get; init; }
     public IReadOnlyList<string> Items { get; init; } = Array.Empty<string>();
     public int BottleCharges { get; init; }
+    /// <summary>
+    /// Кількість підібраних рун (Power/Water/Wisdom/Bounty — сума з GSI Player.RunesActivated).
+    /// Точний тригер: інкрементиться рівно тоді, коли гравець реально активує руну
+    /// (на відміну від gold-jump-евристики, яка може плутати з ласт-хітом великого крипа).
+    /// </summary>
+    public int RunesActivated { get; init; }
+    /// <summary>
+    /// Кількість застеканих лісових кемпів (Player.CampsStacked).
+    /// Для майбутніх квестів P5 (саппорт стекає xx:53).
+    /// </summary>
+    public int CampsStacked { get; init; }
     public double? PositionX { get; init; }
     public double? PositionY { get; init; }
     public long? MatchId { get; init; }

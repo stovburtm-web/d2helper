@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Dota2GSI;
+using Dota2GSI.EventMessages;
 using Dota2GSI.Nodes;
 
 namespace D2Helper.Core.Gsi;
@@ -9,6 +10,11 @@ namespace D2Helper.Core.Gsi;
 /// Реактивний фасад над <see cref="GameStateListener"/>:
 /// підіймає HTTP listener, ловить <c>NewGameState</c> від Dota 2 і ре-публікує його як <see cref="IObservable{GameState}"/>.
 /// Дозволяє quest engine'у, overlay'ю та draft helper'у підписатись без поллінгу.
+///
+/// Окрім стрічки повних game-state'ів, виставляє типізовані стріми GSI-подій:
+/// rune-pickup, bounty-pickup, kills, tower-kills тощо. Це **точніші тригери**,
+/// ніж diff-based евристики у quest-engine: подія приходить рівно тоді, коли
+/// дія відбулась, а не коли побічний показник (gold/xp/level) досяг порога.
 /// </summary>
 public sealed class GameStateBus : IDisposable
 {
@@ -16,11 +22,27 @@ public sealed class GameStateBus : IDisposable
     private readonly BehaviorSubject<GameState?> _subject = new(null);
     private readonly BehaviorSubject<GsiStatus> _status = new(GsiStatus.Stopped);
 
+    // Стрім сирих GSI gameplay-подій (events[] масив з cfg-у): bounty pickup, roshan_killed,
+    // aegis_picked_up, courier_killed, tip. Емітимо кожну окрему подію після нового стейту.
+    private readonly Subject<GameplayEvent> _gameplayEvents = new();
+    // Зміни RunesActivated лічильника локального гравця — найточніший тригер для PickRune-квестів.
+    private readonly Subject<int> _runesActivated = new();
+    // Зміни LH/Denies/Kills/Deaths/Assists/Wards/Towers — для майбутньої score-системи.
+    private readonly Subject<HeroDied> _heroDied = new();
+    private readonly Subject<TowerDestroyed> _towerDestroyed = new();
+
     public GameStateBus(int port = 3000)
     {
         Port = port;
         _listener = new GameStateListener(port);
         _listener.NewGameState += OnNewGameState;
+
+        // Типізовані події приходять синтетично від Dota2EventsInterface (наш GameStateListener
+        // успадковує від нього). Ми просто проксуємо їх у Rx-стріми.
+        _listener.GameplayEvent += e => _gameplayEvents.OnNext(e);
+        _listener.PlayerRunesActivatedChanged += e => _runesActivated.OnNext(e.New);
+        _listener.HeroDied += e => _heroDied.OnNext(e);
+        _listener.TowerDestroyed += e => _towerDestroyed.OnNext(e);
     }
 
     public int Port { get; }
@@ -30,6 +52,18 @@ public sealed class GameStateBus : IDisposable
 
     /// <summary>Статус listener'у — для UI status-рядка.</summary>
     public IObservable<GsiStatus> Status => _status.DistinctUntilChanged();
+
+    /// <summary>Окремі gameplay-події з масиву <c>events</c> (bounty pickup, roshan_killed, courier_killed, aegis…).</summary>
+    public IObservable<GameplayEvent> GameplayEvents => _gameplayEvents;
+
+    /// <summary>Нове значення лічильника <c>Player.RunesActivated</c> — миттєвий сигнал «руна підібрана».</summary>
+    public IObservable<int> RunesActivated => _runesActivated;
+
+    /// <summary>Подія смерті героя (своя + ворожі — для лічильника kills).</summary>
+    public IObservable<HeroDied> HeroDied => _heroDied;
+
+    /// <summary>Подія знищення вежі.</summary>
+    public IObservable<TowerDestroyed> TowerDestroyed => _towerDestroyed;
 
     public GameState? CurrentState => _subject.Value;
 
@@ -73,6 +107,10 @@ public sealed class GameStateBus : IDisposable
         try { _listener.Stop(); } catch { /* ignore */ }
         _subject.OnCompleted();
         _status.OnCompleted();
+        _gameplayEvents.OnCompleted();
+        _runesActivated.OnCompleted();
+        _heroDied.OnCompleted();
+        _towerDestroyed.OnCompleted();
     }
 }
 

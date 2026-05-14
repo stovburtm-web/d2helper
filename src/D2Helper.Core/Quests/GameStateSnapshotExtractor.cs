@@ -43,6 +43,10 @@ internal static class GameStateSnapshotExtractor
             LastHits = player?.LastHits ?? 0,
             Items = names,
             BottleCharges = bottleCharges,
+            // GSI v2 поля (точніші, ніж евристика по золоту).
+            // Player.RunesActivated рахує всі підняті руни — bounty/power/water/wisdom.
+            RunesActivated = player?.RunesActivated ?? 0,
+            CampsStacked = player?.CampsStacked ?? 0,
             PositionX = hero?.Location.X,
             PositionY = hero?.Location.Y,
             MatchId = gs.Map?.MatchID is long mid && mid > 0 ? mid : null,

@@ -158,6 +158,17 @@
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Margin="14,12,14,8"
                  Text="Історія квестів — згруповано по матчах" FontWeight="Bold" Foreground="#FFD58A"/>
+      <!-- Score bar: gamification totals across all matches -->
+      <Border DockPanel.Dock="Top" Margin="14,0,14,8" Padding="12,8"
+              Background="#10182A" CornerRadius="6" BorderBrush="#2A3556" BorderThickness="1">
+        <StackPanel Orientation="Horizontal" Spacing="18">
+          <TextBlock Text="{Binding ScoreTotal}"      Foreground="#FFD700" FontWeight="Bold" FontSize="14"/>
+          <TextBlock Text="{Binding ScoreBreakdown}"  Foreground="#9BE7B6" FontSize="12" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding ScoreStreak}"     Foreground="#FF8A65" FontSize="12" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding ScoreMatches}"    Foreground="#9AC0FF" FontSize="12" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding ScoreCompletion}" Foreground="#E6ECF6" FontSize="12" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Border>
       <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
         <ItemsControl ItemsSource="{Binding QuestHistory}">
           <ItemsControl.ItemTemplate>

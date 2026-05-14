@@ -26,4 +26,8 @@ public sealed record QuestRunRecord
     public int? ClockFinished { get; init; }
     public DateTime StartedAtUtc { get; init; }
     public DateTime FinishedAtUtc { get; init; }
+    /// <summary>Бали, нараховані за цей квест (Score + StreakBonus). 0 для Expired.</summary>
+    public int ScoreAwarded { get; init; }
+    /// <summary>Позиція квеста в ланцюжку успіхів сесії (1=перший Completed, …). null для Expired.</summary>
+    public int? StreakPosition { get; init; }
 }
