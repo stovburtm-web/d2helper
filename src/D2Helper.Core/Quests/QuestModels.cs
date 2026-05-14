@@ -79,6 +79,14 @@ public sealed record QuestProgress
     public int? TargetMin { get; init; }
     public int? TargetIdeal { get; init; }
     public QuestGrade Grade { get; init; } = QuestGrade.None;
+    /// <summary>
+    /// Clock-time коли квест перейшов у Completed (фіксується один раз).
+    /// </summary>
+    public int? CompletedAtClock { get; init; }
+    /// <summary>
+    /// Квест виконано недавно — треба програти анімацію та принижати в overlay кілька секунд.
+    /// </summary>
+    public bool IsCelebrating { get; init; }
     public string ProgressText => $"{Current}/{Target}";
     public string TimeWindow => (FireAtClock, DueAtClock) switch
     {

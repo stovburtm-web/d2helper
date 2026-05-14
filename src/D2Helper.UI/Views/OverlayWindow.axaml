@@ -23,6 +23,14 @@
       <Setter Property="Margin" Value="0,2,0,0"/>
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="Background" Value="#991B2030"/>
+      <Setter Property="RenderTransform" Value="scale(1)"/>
+      <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25"/>
+          <BrushTransition Property="Background" Duration="0:0:0.3"/>
+        </Transitions>
+      </Setter>
     </Style>
     <Style Selector="Border.questRow.completed">
       <Setter Property="Background" Value="#99173A20"/>
@@ -33,6 +41,50 @@
     <Style Selector="Border.questRow.pending">
       <Setter Property="Background" Value="#552A2F3A"/>
     </Style>
+    <!-- "Celebrating" — тільки-но виконали. Фліп фону у яскраво-зелений + pop-pulse.
+         Анімація грається один раз, коли клас celebrating додається. -->
+    <Style Selector="Border.questRow.celebrating">
+      <Setter Property="Background" Value="#CC2EE864"/>
+      <Style.Animations>
+        <Animation Duration="0:0:0.8" IterationCount="1" Easing="QuadraticEaseOut">
+          <KeyFrame Cue="0%">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+            <Setter Property="Background" Value="#FF3CE07A"/>
+          </KeyFrame>
+          <KeyFrame Cue="35%">
+            <Setter Property="RenderTransform" Value="scale(1.10)"/>
+            <Setter Property="Background" Value="#FF3CE07A"/>
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+            <Setter Property="Background" Value="#CC2EE864"/>
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+    <!-- Велика "✅" біля квеста-вкуснячки. -->
+    <Style Selector="TextBlock.celebrateCheck">
+      <Setter Property="Opacity" Value="0"/>
+    </Style>
+    <Style Selector="TextBlock.celebrateCheck.on">
+      <Setter Property="Opacity" Value="1"/>
+      <Style.Animations>
+        <Animation Duration="0:0:0.7" IterationCount="1" Easing="QuadraticEaseOut">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="RenderTransform" Value="scale(0.2)"/>
+          </KeyFrame>
+          <KeyFrame Cue="60%">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="RenderTransform" Value="scale(1.4)"/>
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
   </Window.Styles>
 
   <!-- Без зовнішньої рамки/фону: тільки рядки. Це робить його "плаваючим" над грою. -->
@@ -42,15 +94,23 @@
         <Border Classes="questRow"
                 Classes.completed="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Completed}}"
                 Classes.expired="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Expired}}"
-                Classes.pending="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Pending}}">
-          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-            <TextBlock Grid.Row="0" Grid.Column="0"
+                Classes.pending="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Pending}}"
+                Classes.celebrating="{Binding IsCelebrating}">
+          <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+            <!-- "Вкуснячка" — велика ✅, з'являється лише поки квест celebrating. -->
+            <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                       Classes="celebrateCheck"
+                       Classes.on="{Binding IsCelebrating}"
+                       Text="✅" FontSize="22" Margin="0,0,8,0"
+                       VerticalAlignment="Center"
+                       RenderTransformOrigin="50%,50%"/>
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding Title}" Foreground="#ECF2FF" FontSize="12"
                        TextWrapping="Wrap"/>
-            <TextBlock Grid.Row="0" Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="2"
                        Text="{Binding ProgressText}" Foreground="#FFD58A" FontSize="12"
                        FontWeight="Bold" Margin="8,0,0,0"/>
-            <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Margin="0,4,0,0" Height="4"
+            <ProgressBar Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,0" Height="4"
                          Minimum="0" Maximum="{Binding Target}" Value="{Binding Current}"
                          Foreground="#7BC97F" Background="#22000000"/>
           </Grid>

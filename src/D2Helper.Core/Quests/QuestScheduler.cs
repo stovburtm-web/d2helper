@@ -24,7 +24,14 @@ public sealed class QuestScheduler
         public int LevelAtFire;
         public int BottleChargesAtFire;
         public bool Completed;
+        public int? CompletedAtClock;
     }
+
+    /// <summary>
+    /// Скільки секунд після виконання квест буде підсвічений та закріплений у верху overlay
+    /// (вікно “вкусняшки” — гравець має встигнути побачити фідбек).
+    /// </summary>
+    public const int CelebrationWindowSec = 7;
 
     /// <summary>
     /// Кількість активних/виконаних квестів, які треба показати в overlay.
@@ -67,7 +74,11 @@ public sealed class QuestScheduler
             var clamped = Math.Clamp(current, 0, ideal);
 
             // ✅ "Виконано" фіксується по min-порогу і вже не знімається.
-            if (current >= min) st.Completed = true;
+            if (current >= min)
+            {
+                if (!st.Completed) st.CompletedAtClock = clock;
+                st.Completed = true;
+            }
 
             // Expired: вікно зачинилось, min не досягнутий.
             var expired = q.DueAtClock is int due && clock > due && !st.Completed;
@@ -75,7 +86,12 @@ public sealed class QuestScheduler
                        : expired ? QuestStatus.Expired
                        : QuestStatus.Active;
 
-            result.Add(BuildProgress(q, clamped, goal, min, ideal, status, st.Completed));
+            var celebrating = st.Completed
+                && st.CompletedAtClock is int cac
+                && (clock - cac) <= CelebrationWindowSec;
+
+            result.Add(BuildProgress(q, clamped, goal, min, ideal, status, st.Completed,
+                completedAtClock: st.CompletedAtClock, isCelebrating: celebrating));
         }
 
         return result;
@@ -83,7 +99,8 @@ public sealed class QuestScheduler
 
     private static QuestProgress BuildProgress(
         QuestDefinition q, int current, int goal, int min, int ideal,
-        QuestStatus status, bool done)
+        QuestStatus status, bool done,
+        int? completedAtClock = null, bool isCelebrating = false)
     {
         var grade = current >= ideal ? QuestGrade.Perfect
                   : current >= goal  ? QuestGrade.Good
@@ -105,28 +122,35 @@ public sealed class QuestScheduler
             TargetMin = q.TargetMin,
             TargetIdeal = q.TargetIdeal,
             Grade = grade,
+            CompletedAtClock = completedAtClock,
+            IsCelebrating = isCelebrating,
         };
     }
 
     /// <summary>
     /// Бере з повного списку до 3-х квестів для показу в overlay.
     /// Пріоритет:
-    ///   1) усі Active (не виконані у вікні),
-    ///   2) рівно 1 найсвіжіше Completed (✅ sticky, щоб гравець бачив фідбек),
-    ///   3) заповнюємо залишок Pending у порядку наближення fire_at.
+    ///   1) Celebrating (тільки-но виконані — вкуснячка, пінимо вверху на 7с);
+    ///   2) усі Active (не виконані у вікні),
+    ///   3) рівно 1 найсвіжіше "старе" Completed (✅ sticky, щоб гравець бачив прогрес),
+    ///   4) заповнюємо залишок Pending у порядку наближення fire_at.
     /// Expired не показуємо (програні квести не варто "мозолити").
     /// </summary>
     public static IReadOnlyList<QuestProgress> SelectVisible(IReadOnlyList<QuestProgress> all)
     {
+        var celebrating = all.Where(q => q.IsCelebrating).ToList();
         var active = all.Where(q => q.Status == QuestStatus.Active).ToList();
-        var lastCompleted = all.Where(q => q.Status == QuestStatus.Completed).TakeLast(1).ToList();
+        var stickyCompleted = all
+            .Where(q => q.Status == QuestStatus.Completed && !q.IsCelebrating)
+            .TakeLast(1).ToList();
         var pending = all.Where(q => q.Status == QuestStatus.Pending)
                          .OrderBy(q => q.FireAtClock ?? int.MaxValue)
                          .ToList();
 
         var visible = new List<QuestProgress>(VisibleSlotCount);
-        visible.AddRange(active.Take(VisibleSlotCount));
-        if (visible.Count < VisibleSlotCount) visible.AddRange(lastCompleted.Take(VisibleSlotCount - visible.Count));
+        visible.AddRange(celebrating.Take(VisibleSlotCount));
+        if (visible.Count < VisibleSlotCount) visible.AddRange(active.Take(VisibleSlotCount - visible.Count));
+        if (visible.Count < VisibleSlotCount) visible.AddRange(stickyCompleted.Take(VisibleSlotCount - visible.Count));
         if (visible.Count < VisibleSlotCount) visible.AddRange(pending.Take(VisibleSlotCount - visible.Count));
         return visible.Take(VisibleSlotCount).ToList();
     }
