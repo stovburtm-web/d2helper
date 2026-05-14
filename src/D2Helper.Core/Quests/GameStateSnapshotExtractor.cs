@@ -16,9 +16,16 @@ internal static class GameStateSnapshotExtractor
         // Збираємо назви предметів з інвентарю + стешу + нейтралки + телепорта.
         // "empty" слоти пропускаємо, бо інакше HasItem-перевірка завжди true.
         var names = new List<string>(12);
+        int bottleCharges = 0;
         if (items != null)
         {
-            foreach (var i in items.Inventory) if (!string.IsNullOrEmpty(i.Name) && i.Name != "empty") names.Add(i.Name);
+            foreach (var i in items.Inventory)
+            {
+                if (string.IsNullOrEmpty(i.Name) || i.Name == "empty") continue;
+                names.Add(i.Name);
+                // Bottle charges (включно з "item_bottle_filled_*" для павер-рун).
+                if (i.Name.StartsWith("item_bottle")) bottleCharges = Math.Max(bottleCharges, i.Charges);
+            }
             foreach (var i in items.Stash) if (!string.IsNullOrEmpty(i.Name) && i.Name != "empty") names.Add(i.Name);
             if (!string.IsNullOrEmpty(items.Neutral?.Name) && items.Neutral.Name != "empty") names.Add(items.Neutral.Name);
             if (!string.IsNullOrEmpty(items.Teleport?.Name) && items.Teleport.Name != "empty") names.Add(items.Teleport.Name);
@@ -35,6 +42,7 @@ internal static class GameStateSnapshotExtractor
             WardsPlaced = player?.WardsPlaced ?? 0,
             LastHits = player?.LastHits ?? 0,
             Items = names,
+            BottleCharges = bottleCharges,
             PositionX = hero?.Location.X,
             PositionY = hero?.Location.Y,
             MatchId = gs.Map?.MatchID is long mid && mid > 0 ? mid : null,

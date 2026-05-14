@@ -65,15 +65,6 @@
       "dueAtClock": 360
     },
     {
-      "id": "q-wisdom",
-      "title": "Забери wisdom на 7:00",
-      "type": "WisdomRune",
-      "target": 1,
-      "xpJumpThreshold": 100,
-      "fireAtClock": 390,
-      "dueAtClock": 435
-    },
-    {
       "id": "q-lh-10min",
       "title": "40 ластів+денаїв до 10:00",
       "type": "LastHitsPlusDenies",

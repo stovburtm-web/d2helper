@@ -11,6 +11,7 @@ public sealed record GameStateSnapshot
     public int WardsPlaced { get; init; }
     public int LastHits { get; init; }
     public IReadOnlyList<string> Items { get; init; } = Array.Empty<string>();
+    public int BottleCharges { get; init; }
     public double? PositionX { get; init; }
     public double? PositionY { get; init; }
     public long? MatchId { get; init; }

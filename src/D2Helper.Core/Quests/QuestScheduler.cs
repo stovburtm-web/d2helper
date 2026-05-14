@@ -22,6 +22,7 @@ public sealed class QuestScheduler
         public int GoldAtFire;
         public int XpAtFire;
         public int LevelAtFire;
+        public int BottleChargesAtFire;
         public bool Completed;
     }
 
@@ -58,6 +59,7 @@ public sealed class QuestScheduler
                 st.GoldAtFire = snapshot.Gold;
                 st.XpAtFire = snapshot.Xp;
                 st.LevelAtFire = snapshot.Level;
+                st.BottleChargesAtFire = snapshot.BottleCharges;
             }
 
             // Рахуємо поточний прогрес (продовжуємо рости навіть після min — для tiered).
@@ -140,7 +142,12 @@ public sealed class QuestScheduler
             QuestType.LastHitsPlusDenies => s.LastHits + s.Denies,
             QuestType.LevelReach => s.Level,
             QuestType.HasItem => s.Items.Contains(q.ItemId ?? "") ? 1 : 0,
-            QuestType.PickRune => (s.Gold - st.GoldAtFire) >= (q.GoldJumpThreshold ?? 40) ? 1 : 0,
+            QuestType.PickRune => (
+                // 1) bottle charges стрибнули вгору (water/power picked up in bottle)
+                (s.BottleCharges > st.BottleChargesAtFire) ||
+                // 2) gold-jump >= threshold (bounty rune, або у когось без bottle)
+                (s.Gold - st.GoldAtFire) >= (q.GoldJumpThreshold ?? 40)
+            ) ? 1 : 0,
             QuestType.WisdomRune => (s.Level > st.LevelAtFire) || (s.Xp - st.XpAtFire) >= (q.XpJumpThreshold ?? 100) ? 1 : 0,
             _ => 0,
         };
