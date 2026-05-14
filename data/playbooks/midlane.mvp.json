@@ -4,11 +4,13 @@
   "quests": [
     {
       "id": "q-deny-first-wave",
-      "title": "Денай 1 крипа першої пачки",
+      "title": "Денай крипів першої пачки (мін 1 / норм 2 / ідеал 4)",
       "type": "Denies",
-      "target": 1,
+      "target": 2,
+      "targetMin": 1,
+      "targetIdeal": 4,
       "fireAtClock": 0,
-      "dueAtClock": 60
+      "dueAtClock": 90
     },
     {
       "id": "q-bottle",

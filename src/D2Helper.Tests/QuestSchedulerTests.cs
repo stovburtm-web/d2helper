@@ -171,4 +171,55 @@ public class QuestSchedulerTests
         var r = s.Tick(One(q), new GameStateSnapshot { ClockTime = 0, LastHits = 5 });
         Assert.Equal(QuestStatus.Active, r[0].Status);
     }
+
+    [Fact]
+    public void TieredTarget_CompletesAtMin_BarContinuesToIdeal()
+    {
+        var q = new QuestDefinition
+        {
+            Id = "deny", Title = "deny", Type = QuestType.Denies,
+            Target = 2, TargetMin = 1, TargetIdeal = 4,
+            FireAtClock = 0, DueAtClock = 90,
+        };
+        var s = new QuestScheduler();
+
+        // 0 деній — Active, grade None, бар 0/4.
+        var r0 = s.Tick(One(q), new GameStateSnapshot { ClockTime = 10, Denies = 0 });
+        Assert.Equal(QuestStatus.Active, r0[0].Status);
+        Assert.Equal(QuestGrade.None, r0[0].Grade);
+        Assert.Equal(4, r0[0].Target);
+
+        // 1 деній — min досягнуто, Completed, бар продовжує тікати.
+        var r1 = s.Tick(One(q), new GameStateSnapshot { ClockTime = 20, Denies = 1 });
+        Assert.Equal(QuestStatus.Completed, r1[0].Status);
+        Assert.Equal(QuestGrade.Min, r1[0].Grade);
+        Assert.Equal(1, r1[0].Current);
+
+        // 2 деніа — Good (досяг норм).
+        var r2 = s.Tick(One(q), new GameStateSnapshot { ClockTime = 30, Denies = 2 });
+        Assert.Equal(QuestGrade.Good, r2[0].Grade);
+        Assert.Equal(2, r2[0].Current);
+
+        // 4 деніа — Perfect.
+        var r4 = s.Tick(One(q), new GameStateSnapshot { ClockTime = 40, Denies = 4 });
+        Assert.Equal(QuestGrade.Perfect, r4[0].Grade);
+        Assert.Equal(4, r4[0].Current);
+    }
+
+    [Fact]
+    public void TieredTarget_ExpiresIfMinNotReached()
+    {
+        var q = new QuestDefinition
+        {
+            Id = "deny", Title = "deny", Type = QuestType.Denies,
+            Target = 2, TargetMin = 1, TargetIdeal = 4,
+            FireAtClock = 0, DueAtClock = 90,
+        };
+        var s = new QuestScheduler();
+        s.Tick(One(q), new GameStateSnapshot { ClockTime = 10, Denies = 0 });
+        var r = s.Tick(One(q), new GameStateSnapshot { ClockTime = 100, Denies = 0 });
+        Assert.Equal(QuestStatus.Expired, r[0].Status);
+        Assert.Equal(QuestGrade.None, r[0].Grade);
+    }
 }
+

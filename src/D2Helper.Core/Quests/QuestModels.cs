@@ -40,6 +40,13 @@ public sealed record QuestDefinition
     [JsonPropertyName("itemId")] public string? ItemId { get; init; }
     [JsonPropertyName("goldJumpThreshold")] public int? GoldJumpThreshold { get; init; }
     [JsonPropertyName("xpJumpThreshold")] public int? XpJumpThreshold { get; init; }
+
+    // Трирівнева градація виконання (опціональна).
+    // Якщо вказана тільки Target — єдиний рівень "виконано/ні".
+    // Якщо вказані TargetMin/TargetIdeal — quest вважається виконаним при current ≥ TargetMin,
+    // але прогрес-бар продовжує рости до TargetIdeal — для візуальної градації (мін/норм/ідеал).
+    [JsonPropertyName("targetMin")] public int? TargetMin { get; init; }
+    [JsonPropertyName("targetIdeal")] public int? TargetIdeal { get; init; }
 }
 
 public sealed record PlaybookDefinition
@@ -47,6 +54,14 @@ public sealed record PlaybookDefinition
     [JsonPropertyName("id")] public string Id { get; init; } = "";
     [JsonPropertyName("title")] public string Title { get; init; } = "";
     [JsonPropertyName("quests")] public List<QuestDefinition> Quests { get; init; } = new();
+}
+
+public enum QuestGrade
+{
+    None,      // current < min
+    Min,       // current ≥ min, < norm
+    Good,      // current ≥ norm, < ideal
+    Perfect,   // current ≥ ideal
 }
 
 public sealed record QuestProgress
@@ -61,6 +76,9 @@ public sealed record QuestProgress
     public QuestStatus Status { get; init; }
     public int? FireAtClock { get; init; }
     public int? DueAtClock { get; init; }
+    public int? TargetMin { get; init; }
+    public int? TargetIdeal { get; init; }
+    public QuestGrade Grade { get; init; } = QuestGrade.None;
     public string ProgressText => $"{Current}/{Target}";
     public string TimeWindow => (FireAtClock, DueAtClock) switch
     {

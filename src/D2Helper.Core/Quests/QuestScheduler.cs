@@ -23,8 +23,6 @@ public sealed class QuestScheduler
         public int XpAtFire;
         public int LevelAtFire;
         public bool Completed;
-        public int CompletedCurrent;
-        public int CompletedTarget;
     }
 
     /// <summary>
@@ -41,41 +39,15 @@ public sealed class QuestScheduler
         {
             var st = _state.TryGetValue(q.Id, out var existing) ? existing : (_state[q.Id] = new QuestState());
 
-            // Якщо вже відмічений Completed — лишаємо його як є.
-            if (st.Completed)
-            {
-                result.Add(new QuestProgress
-                {
-                    QuestId = q.Id,
-                    Title = q.Title,
-                    Type = q.Type,
-                    Current = st.CompletedCurrent,
-                    Target = st.CompletedTarget,
-                    IsCompleted = true,
-                    Progress01 = 1.0,
-                    Status = QuestStatus.Completed,
-                    FireAtClock = q.FireAtClock,
-                    DueAtClock = q.DueAtClock,
-                });
-                continue;
-            }
+            var goal = Math.Max(1, q.Target);
+            var min = Math.Max(1, q.TargetMin ?? goal);
+            var ideal = Math.Max(goal, q.TargetIdeal ?? goal);
 
-            // Pending: ще не настав fire_at.
-            if (q.FireAtClock is int fire && clock < fire)
+            // Pending: ще не настав fire_at (і ще не виконано).
+            if (q.FireAtClock is int fire && clock < fire && !st.Completed)
             {
-                result.Add(new QuestProgress
-                {
-                    QuestId = q.Id,
-                    Title = q.Title,
-                    Type = q.Type,
-                    Current = 0,
-                    Target = Math.Max(1, q.Target),
-                    IsCompleted = false,
-                    Progress01 = 0,
-                    Status = QuestStatus.Pending,
-                    FireAtClock = q.FireAtClock,
-                    DueAtClock = q.DueAtClock,
-                });
+                result.Add(BuildProgress(q, current: 0, goal, min, ideal,
+                    status: QuestStatus.Pending, done: false));
                 continue;
             }
 
@@ -88,40 +60,50 @@ public sealed class QuestScheduler
                 st.LevelAtFire = snapshot.Level;
             }
 
-            // Active: рахуємо прогрес.
-            var target = Math.Max(1, q.Target);
+            // Рахуємо поточний прогрес (продовжуємо рости навіть після min — для tiered).
             var current = ComputeCurrent(q, snapshot, st);
-            var clamped = Math.Clamp(current, 0, target);
-            var done = current >= target;
+            var clamped = Math.Clamp(current, 0, ideal);
 
-            // Expired: вікно минуло, не виконано.
-            var expired = q.DueAtClock is int due && clock > due && !done;
+            // ✅ "Виконано" фіксується по min-порогу і вже не знімається.
+            if (current >= min) st.Completed = true;
 
-            var status = done ? QuestStatus.Completed : expired ? QuestStatus.Expired : QuestStatus.Active;
+            // Expired: вікно зачинилось, min не досягнутий.
+            var expired = q.DueAtClock is int due && clock > due && !st.Completed;
+            var status = st.Completed ? QuestStatus.Completed
+                       : expired ? QuestStatus.Expired
+                       : QuestStatus.Active;
 
-            if (done)
-            {
-                st.Completed = true;
-                st.CompletedCurrent = clamped;
-                st.CompletedTarget = target;
-            }
-
-            result.Add(new QuestProgress
-            {
-                QuestId = q.Id,
-                Title = q.Title,
-                Type = q.Type,
-                Current = clamped,
-                Target = target,
-                IsCompleted = done,
-                Progress01 = (double)clamped / target,
-                Status = status,
-                FireAtClock = q.FireAtClock,
-                DueAtClock = q.DueAtClock,
-            });
+            result.Add(BuildProgress(q, clamped, goal, min, ideal, status, st.Completed));
         }
 
         return result;
+    }
+
+    private static QuestProgress BuildProgress(
+        QuestDefinition q, int current, int goal, int min, int ideal,
+        QuestStatus status, bool done)
+    {
+        var grade = current >= ideal ? QuestGrade.Perfect
+                  : current >= goal  ? QuestGrade.Good
+                  : current >= min   ? QuestGrade.Min
+                  : QuestGrade.None;
+
+        return new QuestProgress
+        {
+            QuestId = q.Id,
+            Title = q.Title,
+            Type = q.Type,
+            Current = current,
+            Target = ideal,           // прогрес-бар йде до ідеалу
+            IsCompleted = done,
+            Progress01 = (double)current / Math.Max(1, ideal),
+            Status = status,
+            FireAtClock = q.FireAtClock,
+            DueAtClock = q.DueAtClock,
+            TargetMin = q.TargetMin,
+            TargetIdeal = q.TargetIdeal,
+            Grade = grade,
+        };
     }
 
     /// <summary>

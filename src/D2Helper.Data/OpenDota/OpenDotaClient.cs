@@ -62,7 +62,12 @@ public sealed class OpenDotaClient
     {
         var accountId = SteamIdUtil.ToAccountId(steamId64);
         using var resp = await _http.GetAsync($"players/{accountId}/recentMatches", ct).ConfigureAwait(false);
-        if (!resp.IsSuccessStatusCode) return Array.Empty<RecentMatch>();
+        if (!resp.IsSuccessStatusCode)
+        {
+            // Кидаємо явну помилку зі статусом, щоб UI не маскував реальну причину
+            // (rate-limit 429, 5xx, приватний профіль 200 з [] тощо).
+            throw new HttpRequestException($"OpenDota /recentMatches HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        }
         var raw = await resp.Content.ReadFromJsonAsync<List<RecentMatchDto>>(JsonOpts, ct).ConfigureAwait(false) ?? new();
         var heroes = await GetHeroNamesAsync(ct).ConfigureAwait(false);
 
