@@ -20,5 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\D2Helper.Core\D2Helper.Core.csproj" />
+    <ProjectReference Include="..\D2Helper.Vision\D2Helper.Vision.csproj" />
   </ItemGroup>
 </Project>

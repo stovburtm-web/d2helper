@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:D2Helper.UI.ViewModels"
+        x:Class="D2Helper.UI.Views.MinimapOverlayWindow"
+        x:DataType="vm:MinimapOverlayViewModel"
+        Title="D2Helper · Minimap Vision"
+        Width="320" Height="380"
+        SystemDecorations="None"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="#00000000"
+        Topmost="True"
+        CanResize="False"
+        ShowInTaskbar="False">
+
+  <Border Background="#CC0E1320" CornerRadius="8" BorderBrush="#2A3556" BorderThickness="1" Padding="8">
+    <DockPanel LastChildFill="True">
+      <!-- Header (drag area + status) -->
+      <Border DockPanel.Dock="Top" Background="#10182A" Padding="8,4" CornerRadius="4"
+              PointerPressed="OnHeaderPressed">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Left" Text="🗺 Vision" Foreground="#FFD58A" FontWeight="Bold"/>
+          <TextBlock Text="{Binding Status}" Foreground="#9BE7B6" FontSize="10"
+                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </DockPanel>
+      </Border>
+
+      <!-- Footer controls -->
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+        <Button Content="Calibrate" Command="{Binding CalibrateCommand}" Padding="8,2" FontSize="11"/>
+        <Button Content="Flip (Dire)" Command="{Binding ToggleRotationCommand}" Padding="8,2" FontSize="11"/>
+      </StackPanel>
+
+      <!-- Captured frame + player pin -->
+      <Border Background="#000000" Margin="0,8,0,0" CornerRadius="4" ClipToBounds="True">
+        <Grid>
+          <Image Source="{Binding Frame}"
+                 Width="{Binding ViewWidth}" Height="{Binding ViewHeight}"
+                 Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <!-- Player pin: 10×10 жовтий кружок, позиція оновлюється з GSI -->
+          <Canvas Width="{Binding ViewWidth}" Height="{Binding ViewHeight}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Ellipse Canvas.Left="{Binding PlayerX}" Canvas.Top="{Binding PlayerY}"
+                     Width="10" Height="10"
+                     Fill="#FFEB3B" Stroke="#1A1A1A" StrokeThickness="1.5"/>
+          </Canvas>
+        </Grid>
+      </Border>
+    </DockPanel>
+  </Border>
+</Window>

@@ -23,6 +23,8 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly StratzClient _stratz;
     private readonly SteamOpenIdService _steamAuth;
     private readonly GameStateBus _gsi;
+    /// <summary>Експонована шина GSI — потрібна іншим overlay-вікнам (Vision).</summary>
+    public GameStateBus GameStateBus => _gsi;
     private readonly QuestRunRepository? _questRuns;
     private readonly string _sessionId = Guid.NewGuid().ToString("N");
 
