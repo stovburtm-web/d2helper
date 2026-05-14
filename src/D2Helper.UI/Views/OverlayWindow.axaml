@@ -35,11 +35,46 @@
     <Style Selector="Border.questRow.completed">
       <Setter Property="Background" Value="#99173A20"/>
     </Style>
+    <!-- Grade-кольори (накладаються поверх .completed). Перфект — золото, Good — зелений, Min — жовтий. -->
+    <Style Selector="Border.questRow.completed.gradeMin">
+      <Setter Property="Background" Value="#99554200"/>
+      <Setter Property="BorderThickness" Value="0,0,0,2"/>
+      <Setter Property="BorderBrush" Value="#FFE4A93C"/>
+    </Style>
+    <Style Selector="Border.questRow.completed.gradeGood">
+      <Setter Property="Background" Value="#9919562E"/>
+      <Setter Property="BorderThickness" Value="0,0,0,2"/>
+      <Setter Property="BorderBrush" Value="#FF7BE08E"/>
+    </Style>
+    <Style Selector="Border.questRow.completed.gradePerfect">
+      <Setter Property="Background" Value="#AA5C4818"/>
+      <Setter Property="BorderThickness" Value="0,0,0,2"/>
+      <Setter Property="BorderBrush" Value="#FFFFD24A"/>
+    </Style>
     <Style Selector="Border.questRow.expired">
       <Setter Property="Background" Value="#88331818"/>
     </Style>
     <Style Selector="Border.questRow.pending">
       <Setter Property="Background" Value="#552A2F3A"/>
+    </Style>
+    <!-- DEADLINE WARNING: до due_at ≤ 30с і ще не виконав. Пульсує opacity щоб
+         перехопити периферичний зір гравця. -->
+    <Style Selector="Border.questRow.deadline">
+      <Setter Property="Background" Value="#CC8B2A2A"/>
+      <Setter Property="BorderThickness" Value="0,0,0,3"/>
+      <Setter Property="BorderBrush" Value="#FFFF5252"/>
+      <Style.Animations>
+        <Animation Duration="0:0:0.7" IterationCount="INFINITE" Easing="SineEaseInOut" PlaybackDirection="Alternate">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="Background" Value="#CC8B2A2A"/>
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="0.55"/>
+            <Setter Property="Background" Value="#EEFF3838"/>
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
     </Style>
     <!-- "Celebrating" — тільки-но виконали. Підсвічуємо яскраво-зеленим
          + злегка "піднімаємо" рядок через RenderTransform-transition
@@ -95,7 +130,11 @@
                 Classes.completed="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Completed}}"
                 Classes.expired="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Expired}}"
                 Classes.pending="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Pending}}"
-                Classes.celebrating="{Binding IsCelebrating}">
+                Classes.celebrating="{Binding IsCelebrating}"
+                Classes.deadline="{Binding IsDeadlineSoon}"
+                Classes.gradeMin="{Binding Grade, Converter={x:Static vm:GradeEqualsConverter.Min}}"
+                Classes.gradeGood="{Binding Grade, Converter={x:Static vm:GradeEqualsConverter.Good}}"
+                Classes.gradePerfect="{Binding Grade, Converter={x:Static vm:GradeEqualsConverter.Perfect}}">
           <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
             <!-- "Вкуснячка" — велика ✅, з'являється лише поки квест celebrating. -->
             <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"

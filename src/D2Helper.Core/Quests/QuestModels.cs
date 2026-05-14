@@ -87,6 +87,10 @@ public sealed record QuestProgress
     /// Квест виконано недавно — треба програти анімацію та принижати в overlay кілька секунд.
     /// </summary>
     public bool IsCelebrating { get; init; }
+    /// <summary>
+    /// Active квест, до дедлайну лишилося ≤ N секунд — потрібна пульсуюча анімація щоб вибити з фокусу гри.
+    /// </summary>
+    public bool IsDeadlineSoon { get; init; }
     public string ProgressText => $"{Current}/{Target}";
     public string TimeWindow => (FireAtClock, DueAtClock) switch
     {

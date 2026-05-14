@@ -34,6 +34,11 @@ public sealed class QuestScheduler
     public const int CelebrationWindowSec = 7;
 
     /// <summary>
+    /// За скільки секунд до due_at квест починає пульсувати ("ГАЙ!")
+    /// </summary>
+    public const int DeadlineWarningSec = 30;
+
+    /// <summary>
     /// Кількість активних/виконаних квестів, які треба показати в overlay.
     /// </summary>
     public const int VisibleSlotCount = 3;
@@ -90,8 +95,15 @@ public sealed class QuestScheduler
                 && st.CompletedAtClock is int cac
                 && (clock - cac) <= CelebrationWindowSec;
 
+            // Дедлайн-warning: тільки для Active, коли до due_at лишилося ≤ N секунд.
+            var deadlineSoon = status == QuestStatus.Active
+                && q.DueAtClock is int dueClk
+                && (dueClk - clock) <= DeadlineWarningSec
+                && (dueClk - clock) > 0;
+
             result.Add(BuildProgress(q, clamped, goal, min, ideal, status, st.Completed,
-                completedAtClock: st.CompletedAtClock, isCelebrating: celebrating));
+                completedAtClock: st.CompletedAtClock, isCelebrating: celebrating,
+                isDeadlineSoon: deadlineSoon));
         }
 
         return result;
@@ -100,7 +112,8 @@ public sealed class QuestScheduler
     private static QuestProgress BuildProgress(
         QuestDefinition q, int current, int goal, int min, int ideal,
         QuestStatus status, bool done,
-        int? completedAtClock = null, bool isCelebrating = false)
+        int? completedAtClock = null, bool isCelebrating = false,
+        bool isDeadlineSoon = false)
     {
         var grade = current >= ideal ? QuestGrade.Perfect
                   : current >= goal  ? QuestGrade.Good
@@ -124,6 +137,7 @@ public sealed class QuestScheduler
             Grade = grade,
             CompletedAtClock = completedAtClock,
             IsCelebrating = isCelebrating,
+            IsDeadlineSoon = isDeadlineSoon,
         };
     }
 

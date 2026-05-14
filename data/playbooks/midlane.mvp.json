@@ -49,10 +49,9 @@
     },
     {
       "id": "q-obs-ward",
-      "title": "Май обзервер до 4:30",
-      "type": "HasItem",
+      "title": "Постав 1 обзервер до 4:30",
+      "type": "WardsPlaced",
       "target": 1,
-      "itemId": "item_ward_observer",
       "fireAtClock": 240,
       "dueAtClock": 270
     },
