@@ -166,7 +166,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<RecentMatch> RecentMatches { get; } = new();
     public ObservableCollection<QuestProgress> ActiveQuests { get; } = new();
-    public ObservableCollection<QuestRunRecord> QuestHistory { get; } = new();
+    public ObservableCollection<QuestMatchGroup> QuestHistory { get; } = new();
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -272,9 +272,33 @@ public partial class MainWindowViewModel : ObservableObject
         if (_questRuns is null) return;
         try
         {
-            var rows = _questRuns.GetRecent(100);
+            var rows = _questRuns.GetRecent(300);
+            // Групуємо по MatchId (якщо немає — по SessionId).
+            var groups = rows
+                .GroupBy(r => (r.MatchId, Key: r.MatchId?.ToString() ?? ("s:" + r.SessionId)))
+                .Select(g =>
+                {
+                    var sorted = g.OrderBy(q => q.FireAtClock ?? int.MaxValue).ToList();
+                    var first = g.First();
+                    var latest = g.Max(q => q.FinishedAtUtc);
+                    var hero = g.Select(q => q.HeroName).FirstOrDefault(h => !string.IsNullOrEmpty(h));
+                    var header = first.MatchId is long mid
+                        ? $"Match {mid} · {hero ?? "?"} · {latest.ToLocalTime():yyyy-MM-dd HH:mm}"
+                        : $"Сесія {first.SessionId[..Math.Min(8, first.SessionId.Length)]} · {hero ?? "(no match)"} · {latest.ToLocalTime():yyyy-MM-dd HH:mm}";
+                    return new QuestMatchGroup
+                    {
+                        Header = header,
+                        MatchId = first.MatchId,
+                        SessionId = first.SessionId,
+                        LatestFinishedAt = latest,
+                        Quests = sorted,
+                    };
+                })
+                .OrderByDescending(g => g.LatestFinishedAt)
+                .ToList();
+
             QuestHistory.Clear();
-            foreach (var r in rows) QuestHistory.Add(r);
+            foreach (var g in groups) QuestHistory.Add(g);
         }
         catch { /* ignore */ }
     }

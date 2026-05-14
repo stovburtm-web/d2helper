@@ -157,22 +157,37 @@
   <Border Classes="card" Grid.Row="3" Margin="0,8,0,0" Padding="0">
     <DockPanel>
       <TextBlock DockPanel.Dock="Top" Margin="14,12,14,8"
-                 Text="Історія квестів (останні 100)" FontWeight="Bold" Foreground="#FFD58A"/>
-      <DataGrid ItemsSource="{Binding QuestHistory}"
-                AutoGenerateColumns="False" CanUserSortColumns="True"
-                GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                Background="Transparent" Foreground="#E6ECF6"
-                MaxHeight="260">
-        <DataGrid.Columns>
-          <DataGridTextColumn Header="Коли" Binding="{Binding FinishedAtUtc, x:DataType=q:QuestRunRecord, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160"/>
-          <DataGridTextColumn Header="Quest" Binding="{Binding Title, x:DataType=q:QuestRunRecord}" Width="*"/>
-          <DataGridTextColumn Header="Status" Binding="{Binding FinalStatus, x:DataType=q:QuestRunRecord}" Width="90"/>
-          <DataGridTextColumn Header="Grade" Binding="{Binding Grade, x:DataType=q:QuestRunRecord}" Width="80"/>
-          <DataGridTextColumn Header="Result" Binding="{Binding FinalCurrent, x:DataType=q:QuestRunRecord}" Width="70"/>
-          <DataGridTextColumn Header="Hero" Binding="{Binding HeroName, x:DataType=q:QuestRunRecord}" Width="140"/>
-          <DataGridTextColumn Header="Match" Binding="{Binding MatchId, x:DataType=q:QuestRunRecord}" Width="120"/>
-        </DataGrid.Columns>
-      </DataGrid>
+                 Text="Історія квестів — згруповано по матчах" FontWeight="Bold" Foreground="#FFD58A"/>
+      <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding QuestHistory}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:QuestMatchGroup">
+              <Expander Margin="8,4" Background="#1B2030" Foreground="#E6ECF6">
+                <Expander.Header>
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="{Binding Header}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Summary}" Foreground="#9AC0FF"/>
+                  </StackPanel>
+                </Expander.Header>
+                <DataGrid ItemsSource="{Binding Quests}"
+                          AutoGenerateColumns="False"
+                          GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                          Background="Transparent" Foreground="#E6ECF6"
+                          IsReadOnly="True">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Fire" Binding="{Binding FireAtClock, x:DataType=q:QuestRunRecord}" Width="60"/>
+                    <DataGridTextColumn Header="Quest" Binding="{Binding Title, x:DataType=q:QuestRunRecord}" Width="*"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding FinalStatus, x:DataType=q:QuestRunRecord}" Width="90"/>
+                    <DataGridTextColumn Header="Grade" Binding="{Binding Grade, x:DataType=q:QuestRunRecord}" Width="80"/>
+                    <DataGridTextColumn Header="Result" Binding="{Binding FinalCurrent, x:DataType=q:QuestRunRecord}" Width="70"/>
+                    <DataGridTextColumn Header="Clock fin" Binding="{Binding ClockFinished, x:DataType=q:QuestRunRecord}" Width="80"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </Expander>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
     </DockPanel>
   </Border>
   </Grid>

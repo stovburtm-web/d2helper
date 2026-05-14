@@ -14,7 +14,12 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow { DataContext = new MainWindowViewModel() };
+            var vm = new MainWindowViewModel();
+            desktop.MainWindow = new MainWindow { DataContext = vm };
+
+            // Прозорий overlay поверх Dota з тими ж активними квестами.
+            var overlay = new OverlayWindow { DataContext = vm };
+            overlay.Show();
         }
         base.OnFrameworkInitializationCompleted();
     }

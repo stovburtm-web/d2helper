@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:D2Helper.UI.ViewModels"
+        xmlns:q="using:D2Helper.Core.Quests"
+        x:Class="D2Helper.UI.Views.OverlayWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="D2Helper Overlay"
+        Width="380" Height="220"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        SystemDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        CanResize="False"
+        WindowStartupLocation="Manual">
+  <Window.Styles>
+    <Style Selector="Border.questRow">
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Margin" Value="0,3,0,0"/>
+      <Setter Property="Background" Value="#CC1B2030"/>
+      <Setter Property="BorderBrush" Value="#33000000"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border.questRow.active">
+      <Setter Property="Background" Value="#CC1B2030"/>
+    </Style>
+    <Style Selector="Border.questRow.completed">
+      <Setter Property="Background" Value="#CC1A3A24"/>
+    </Style>
+    <Style Selector="Border.questRow.expired">
+      <Setter Property="Background" Value="#CC3A1A1A"/>
+    </Style>
+    <Style Selector="Border.questRow.pending">
+      <Setter Property="Background" Value="#882A2F3A"/>
+    </Style>
+  </Window.Styles>
+
+  <Border CornerRadius="10" Padding="10" Background="#992B313E" BorderBrush="#55000000" BorderThickness="1">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+        <TextBlock Text="D2Helper" Foreground="#9AC0FF" FontWeight="Bold" FontSize="12"/>
+        <TextBlock Text="{Binding GsiClock}" Foreground="#9BE7B6" FontSize="11" VerticalAlignment="Center"/>
+      </StackPanel>
+      <ItemsControl ItemsSource="{Binding ActiveQuests}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="q:QuestProgress">
+            <Border Classes="questRow"
+                    Classes.active="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Active}}"
+                    Classes.completed="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Completed}}"
+                    Classes.expired="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Expired}}"
+                    Classes.pending="{Binding Status, Converter={x:Static vm:StatusEqualsConverter.Pending}}">
+              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="{Binding Title}" Foreground="#ECF2FF" FontSize="12" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="0" Grid.Column="1"
+                           Text="{Binding ProgressText}" Foreground="#FFD58A" FontSize="12" FontWeight="Bold" Margin="8,0,0,0"/>
+                <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Margin="0,4,0,0" Height="6"
+                             Minimum="0" Maximum="{Binding Target}" Value="{Binding Current}"
+                             Foreground="#7BC97F" Background="#33000000"/>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+  </Border>
+</Window>
