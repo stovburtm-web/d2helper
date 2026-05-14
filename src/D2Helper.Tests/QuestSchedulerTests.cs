@@ -128,6 +128,26 @@ public class QuestSchedulerTests
     }
 
     [Fact]
+    public void SelectVisible_CompletedCappedAtOne_LeavesRoomForPending()
+    {
+        // Кейс з реальної гри: гравець виконав 3 квести підряд,
+        // но наступний Pending має все одно бути видимим як прев'ю.
+        var all = new List<QuestProgress>
+        {
+            new() { QuestId = "c1", Status = QuestStatus.Completed },
+            new() { QuestId = "c2", Status = QuestStatus.Completed },
+            new() { QuestId = "c3", Status = QuestStatus.Completed },
+            new() { QuestId = "p1", Status = QuestStatus.Pending, FireAtClock = 300 },
+            new() { QuestId = "p2", Status = QuestStatus.Pending, FireAtClock = 500 },
+        };
+        var visible = QuestScheduler.SelectVisible(all);
+        Assert.Equal(3, visible.Count);
+        Assert.Equal("c3", visible[0].QuestId); // останнє Completed
+        Assert.Equal("p1", visible[1].QuestId);
+        Assert.Equal("p2", visible[2].QuestId);
+    }
+
+    [Fact]
     public void SelectVisible_FillsWithPendingByEarliestFire()
     {
         var all = new List<QuestProgress>

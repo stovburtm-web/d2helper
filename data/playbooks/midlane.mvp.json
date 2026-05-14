@@ -3,30 +3,30 @@
   "title": "Mid MVP (Stage 3)",
   "quests": [
     {
-      "id": "q-deny-ranged",
-      "title": "Денай ranged крипа першої пачки",
+      "id": "q-deny-first-wave",
+      "title": "Денай 1 крипа першої пачки",
       "type": "Denies",
       "target": 1,
       "fireAtClock": 0,
-      "dueAtClock": 55
+      "dueAtClock": 60
     },
     {
       "id": "q-bottle",
-      "title": "Купи bottle до 1:00",
+      "title": "Купи bottle (ідеал 2:00, дедлайн 3:00)",
       "type": "HasItem",
       "target": 1,
       "itemId": "item_bottle",
       "fireAtClock": 30,
-      "dueAtClock": 60
+      "dueAtClock": 180
     },
     {
-      "id": "q-rune-2min",
-      "title": "Забери руну на 2:00",
+      "id": "q-rune-water-2min",
+      "title": "Забери water-руну на 2:00",
       "type": "PickRune",
       "target": 1,
       "goldJumpThreshold": 40,
       "fireAtClock": 110,
-      "dueAtClock": 135
+      "dueAtClock": 140
     },
     {
       "id": "q-lh-5min",
@@ -37,13 +37,13 @@
       "dueAtClock": 300
     },
     {
-      "id": "q-rune-4min",
-      "title": "Забери руну на 4:00",
+      "id": "q-rune-water-4min",
+      "title": "Забери water-руну на 4:00",
       "type": "PickRune",
       "target": 1,
       "goldJumpThreshold": 40,
       "fireAtClock": 230,
-      "dueAtClock": 255
+      "dueAtClock": 260
     },
     {
       "id": "q-obs-ward",

@@ -17,3 +17,5 @@ secrets/
 appsettings.Local.json
 appsettings.Development.json
 
+
+test-out.txt

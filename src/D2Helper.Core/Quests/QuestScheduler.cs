@@ -126,20 +126,23 @@ public sealed class QuestScheduler
 
     /// <summary>
     /// Бере з повного списку до 3-х квестів для показу в overlay.
-    /// Пріоритет: Active not-done &gt; Active done (✅ свіжо виконані) &gt; найближчі Pending.
-    /// Expired не показуємо взагалі (вони "програні", не варто на них залипати).
+    /// Пріоритет:
+    ///   1) усі Active (не виконані у вікні),
+    ///   2) рівно 1 найсвіжіше Completed (✅ sticky, щоб гравець бачив фідбек),
+    ///   3) заповнюємо залишок Pending у порядку наближення fire_at.
+    /// Expired не показуємо (програні квести не варто "мозолити").
     /// </summary>
     public static IReadOnlyList<QuestProgress> SelectVisible(IReadOnlyList<QuestProgress> all)
     {
         var active = all.Where(q => q.Status == QuestStatus.Active).ToList();
-        var doneRecent = all.Where(q => q.Status == QuestStatus.Completed).ToList();
+        var lastCompleted = all.Where(q => q.Status == QuestStatus.Completed).TakeLast(1).ToList();
         var pending = all.Where(q => q.Status == QuestStatus.Pending)
                          .OrderBy(q => q.FireAtClock ?? int.MaxValue)
                          .ToList();
 
         var visible = new List<QuestProgress>(VisibleSlotCount);
-        visible.AddRange(active);
-        if (visible.Count < VisibleSlotCount) visible.AddRange(doneRecent.TakeLast(VisibleSlotCount - visible.Count));
+        visible.AddRange(active.Take(VisibleSlotCount));
+        if (visible.Count < VisibleSlotCount) visible.AddRange(lastCompleted.Take(VisibleSlotCount - visible.Count));
         if (visible.Count < VisibleSlotCount) visible.AddRange(pending.Take(VisibleSlotCount - visible.Count));
         return visible.Take(VisibleSlotCount).ToList();
     }
