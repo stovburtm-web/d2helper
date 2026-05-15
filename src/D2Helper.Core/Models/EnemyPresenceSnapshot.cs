@@ -8,7 +8,8 @@ namespace D2Helper.Core.Models;
 /// <param name="Wx">World X (-8288..8288).</param>
 /// <param name="Wy">World Y.</param>
 /// <param name="StaleSeconds">Скільки секунд тому ця точка була останньо видима (0 = зараз).</param>
-public readonly record struct EnemyDot(float Wx, float Wy, float StaleSeconds);
+/// <param name="Weight">Множник «сили» юніта. 1.0 = герой, 0.15 = lane creep, 0.3 = ranged creep тощо.</param>
+public readonly record struct EnemyDot(float Wx, float Wy, float StaleSeconds, float Weight = 1f);
 
 /// <summary>
 /// Снапшот ворожих юнітів на мінімапі у конкретний момент часу. Будується адаптером
@@ -35,7 +36,7 @@ public sealed class EnemyPresenceSnapshot
         foreach (var d in dots)
         {
             if (d.StaleSeconds < 2f) fresh++;
-            mass += StaleWeight(d.StaleSeconds);
+            mass += StaleWeight(d.StaleSeconds) * d.Weight;
         }
         FreshCount = fresh;
         TotalMass = mass;
@@ -61,7 +62,7 @@ public sealed class EnemyPresenceSnapshot
         float sum = 0f;
         foreach (var d in Dots)
         {
-            float weight = StaleWeight(d.StaleSeconds);
+            float weight = StaleWeight(d.StaleSeconds) * d.Weight;
             if (weight <= 0f) continue;
             // Базовий радіус 2200 (~true sight). Ghost розпливається до ~3500.
             float radius = 2200f + d.StaleSeconds * 90f;

@@ -41,6 +41,7 @@ public partial class DangerHeatmapWindow : Window
     private EmpiricalDeathField? _empiricalField;
     private readonly MinimapPresenceTracker _presenceTracker = new();
     private EnemyPresenceSnapshot? _presence;
+    private EnemyPresenceSnapshot? _friendly;
     private DateTime _lastRender = DateTime.MinValue;
     private int _renderedW = -1, _renderedH = -1;
     private PlayerSide _renderedSide;
@@ -235,8 +236,10 @@ public partial class DangerHeatmapWindow : Window
                 _heroWorld = null;
             }
 
-            // V1.3: оновлюємо ворожий presence-snapshot з minimap.Elements (з last-seen ghost'ами).
-            _presence = _presenceTracker.Update(gs, _side == PlayerSide.Radiant, DateTime.UtcNow);
+            // V1.3+V1.4: оновлюємо enemy presence (з ghost'ами) + ally force (без ghost).
+            var force = _presenceTracker.UpdateForce(gs, _side == PlayerSide.Radiant, DateTime.UtcNow);
+            _presence = force.Enemies;
+            _friendly = force.Allies;
 
             _dynamicDirty = true;
 
@@ -287,7 +290,8 @@ public partial class DangerHeatmapWindow : Window
                 fogField: _fogField,
                 heroWorld: _heroWorld,
                 empirical: _empiricalField,
-                presence: _presence);
+                presence: _presence,
+                friendlyForce: _friendly);
             using var ms = new MemoryStream();
             dbmp.Save(ms, DImageFormat.Png);
             ms.Position = 0;

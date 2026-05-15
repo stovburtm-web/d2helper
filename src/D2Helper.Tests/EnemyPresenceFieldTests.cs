@@ -111,4 +111,49 @@ public class EnemyPresenceFieldTests
             presenceLocal: float.NaN, absenceScore: float.NaN);
         Assert.Equal(a, b);
     }
+
+    // ===== V1.4: friendly control / lane creep weight =====
+
+    [Fact]
+    public void EnemyDot_CustomWeight_ScalesPresence()
+    {
+        var heroSnap = new EnemyPresenceSnapshot(new[] { new EnemyDot(0, 0, 0f, Weight: 1f) });
+        var creepSnap = new EnemyPresenceSnapshot(new[] { new EnemyDot(0, 0, 0f, Weight: 0.15f) });
+        var heroLocal = heroSnap.SampleLocal(0, 0);
+        var creepLocal = creepSnap.SampleLocal(0, 0);
+        Assert.InRange(creepLocal / heroLocal, 0.10f, 0.20f);
+    }
+
+    [Fact]
+    public void DangerDynamic_FriendlyControl_LowersBaseDanger()
+    {
+        // Ворожий highground без жодного контексту.
+        float baseD = DangerZoneModel.ComputeDangerDynamic(5500, 5500, PlayerSide.Radiant, 600);
+        // Купа союзників (fc=1.0) поряд — приймемо файт.
+        float withAllies = DangerZoneModel.ComputeDangerDynamic(5500, 5500, PlayerSide.Radiant, 600,
+            friendlyControl: 1.0f);
+        Assert.True(withAllies < baseD - 0.3f,
+            $"friendly control should drop danger; was {baseD}, now {withAllies}");
+    }
+
+    [Fact]
+    public void DangerDynamic_EnemyVsFriendly_BothApplied()
+    {
+        // Ворог поряд (+0.6 nudge) + союзники поряд (-0.4) → майже нейтрально.
+        float withBoth = DangerZoneModel.ComputeDangerDynamic(0, 0, PlayerSide.Radiant, 600,
+            presenceLocal: 1.0f, friendlyControl: 1.0f);
+        float onlyEnemy = DangerZoneModel.ComputeDangerDynamic(0, 0, PlayerSide.Radiant, 600,
+            presenceLocal: 1.0f);
+        Assert.True(withBoth < onlyEnemy - 0.3f,
+            $"allies should reduce danger when contested; only={onlyEnemy} both={withBoth}");
+    }
+
+    [Fact]
+    public void DangerDynamic_FriendlyControl_NaN_NoEffect()
+    {
+        float a = DangerZoneModel.ComputeDangerDynamic(2000, 2000, PlayerSide.Radiant, 600);
+        float b = DangerZoneModel.ComputeDangerDynamic(2000, 2000, PlayerSide.Radiant, 600,
+            friendlyControl: float.NaN);
+        Assert.Equal(a, b);
+    }
 }

@@ -108,6 +108,9 @@ public static class DangerZoneModel
     /// <param name="absenceScore">V1.3: 0..1, наскільки впевнено всі вороги ДАЛЕКО (anti-presence).
     /// При absence=1 і aggressive ваги — точка стає на ~75% безпечнішою. <c>NaN</c> = вимкнено.</param>
     /// <param name="absenceWeight">Aggressive за дефолтом (0.75): сильно віримо minimap'у.</param>
+    /// <param name="friendlyControl">V1.4: локальна присутність союзних героїв і лайн-крепів (0..1.5+).
+    /// Контр-балансує загрозу: є з ким приймати файт → danger знижується. <c>NaN</c> = вимкнено.</param>
+    /// <param name="friendlyControlWeight">Множник: 4 союзники поряд (fc≈1.0) → -0.4 danger.</param>
     public static float ComputeDangerDynamic(
         float wx, float wy, PlayerSide side, float gameTime,
         float fogDensity = 0.5f,
@@ -120,7 +123,9 @@ public static class DangerZoneModel
         float presenceLocal = float.NaN,
         float presenceWeight = 0.60f,
         float absenceScore = float.NaN,
-        float absenceWeight = 0.75f)
+        float absenceWeight = 0.75f,
+        float friendlyControl = float.NaN,
+        float friendlyControlWeight = 0.50f)
     {
         float danger = ComputeDanger(wx, wy, side, gameTime);
 
@@ -183,6 +188,15 @@ public static class DangerZoneModel
         if (!float.IsNaN(absenceScore) && absenceScore > 0f)
         {
             danger *= 1f - absenceScore * absenceWeight;
+        }
+
+        // V1.4: friendly control — союзні герої/крепи поряд → загроза знижується.
+        // Не скасовує presence (ворог свіжий все одно небезпечний), але зменшує базовий ризик «я самий».
+        if (!float.IsNaN(friendlyControl) && friendlyControl > 0f)
+        {
+            float fc = friendlyControl;
+            if (fc > 1.5f) fc = 1.5f;
+            danger -= fc * friendlyControlWeight;
         }
 
         if (danger < 0f) danger = 0f;

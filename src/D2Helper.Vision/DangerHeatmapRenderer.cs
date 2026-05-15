@@ -26,7 +26,8 @@ public static class DangerHeatmapRenderer
                                        float[,]? fogField = null,
                                        (float X, float Y)? heroWorld = null,
                                        EmpiricalDeathField? empirical = null,
-                                       EnemyPresenceSnapshot? presence = null)
+                                       EnemyPresenceSnapshot? presence = null,
+                                       EnemyPresenceSnapshot? friendlyForce = null)
     {
         var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
         var data = bmp.LockBits(new Rectangle(0, 0, width, height),
@@ -56,13 +57,15 @@ public static class DangerHeatmapRenderer
                         : empirical.Sample(wx, wy, side, gameTime);
                     float pres = presence is null ? float.NaN : presence.SampleLocal(wx, wy);
                     float absc = presence is null ? float.NaN : presence.SampleAbsence(wx, wy);
+                    float fc = friendlyForce is null ? float.NaN : friendlyForce.SampleLocal(wx, wy);
                     float danger = DangerZoneModel.ComputeDangerDynamic(
                         wx, wy, side, gameTime,
                         fogDensity: fog,
                         heroX: hx, heroY: hy,
                         empiricalDensity: emp,
                         presenceLocal: pres,
-                        absenceScore: absc);
+                        absenceScore: absc,
+                        friendlyControl: fc);
 
                     // 3 чіткі зони з різкими межами. Жовтий — вузька contested-смуга.
                     var (r, g, b, a) = DangerToBand(danger, alpha);
