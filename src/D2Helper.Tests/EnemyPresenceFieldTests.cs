@@ -156,4 +156,47 @@ public class EnemyPresenceFieldTests
             friendlyControl: float.NaN);
         Assert.Equal(a, b);
     }
+
+    // ===== V1.5: fountain-passive + death-aware absence =====
+
+    [Fact]
+    public void V15_PassiveDot_DoesNotPushPresence_ButCountsInAbsence()
+    {
+        // Ворог у фонтані (passive=true) + 1 активний далеко. Поряд із passive → presence ~0,
+        // але absence-знаменник усе одно бачить його через FreshCount/TotalMass.
+        var dots = new[]
+        {
+            new EnemyDot(7000f, 7000f, 0f, Weight: 1f, IsPassive: true),
+            new EnemyDot(5000f, 5000f, 0f, Weight: 1f, IsPassive: false),
+        };
+        var snap = new EnemyPresenceSnapshot(dots);
+        // Біля passive-крапки SampleLocal майже 0 (тільки внесок другої з відстані).
+        var atPassive = snap.SampleLocal(7000f, 7000f);
+        var atActive = snap.SampleLocal(5000f, 5000f);
+        Assert.True(atPassive < atActive * 0.3f,
+            $"passive повинна давати майже 0 push; passive={atPassive}, active={atActive}");
+
+        // Але обидва — fresh → FreshCount = 2.
+        Assert.Equal(2, snap.FreshCount);
+    }
+
+    [Fact]
+    public void V15_Absence_Confidence_ScalesWithAliveCount()
+    {
+        // 2 fresh enemies + AliveEnemyCount=3 (бо 2 ворога мертві) →
+        // denominator = max(1, 3-1) = 2 → confidence = min(1, 2/2) = 1.0 (повна).
+        // Без V1.5 denominator=4 → confidence = 0.5 (втричі менша зелень).
+        var dots = new[]
+        {
+            new EnemyDot(5000, 5000, 0),
+            new EnemyDot(5200, 4800, 0),
+        };
+        var snapAlive5 = new EnemyPresenceSnapshot(dots) { AliveEnemyCount = 5 };
+        var snapAlive3 = new EnemyPresenceSnapshot(dots) { AliveEnemyCount = 3 };
+
+        float far5 = snapAlive5.SampleAbsence(-6000, -6000);
+        float far3 = snapAlive3.SampleAbsence(-6000, -6000);
+        Assert.True(far3 > far5 + 0.2f,
+            $"при меншій aliveCount absence сильніша; alive5={far5}, alive3={far3}");
+    }
 }

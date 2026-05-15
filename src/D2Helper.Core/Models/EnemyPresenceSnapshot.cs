@@ -9,7 +9,11 @@ namespace D2Helper.Core.Models;
 /// <param name="Wy">World Y.</param>
 /// <param name="StaleSeconds">Скільки секунд тому ця точка була останньо видима (0 = зараз).</param>
 /// <param name="Weight">Множник «сили» юніта. 1.0 = герой, 0.15 = lane creep, 0.3 = ranged creep тощо.</param>
-public readonly record struct EnemyDot(float Wx, float Wy, float StaleSeconds, float Weight = 1f);
+/// <param name="IsPassive">V1.5: <c>true</c> якщо юніт зараз не є активною загрозою (в фонтані /
+/// respawning). Такі крапки НЕ пушать червоним в <see cref="EnemyPresenceSnapshot.SampleLocal"/>,
+/// але АКТИВНО враховуються в absence як fresh visible (FreshCount + TotalMass), що дає
+/// бажаний ефект «всі вороги в таверні → решта мапи зелена».</param>
+public readonly record struct EnemyDot(float Wx, float Wy, float StaleSeconds, float Weight = 1f, bool IsPassive = false);
 
 /// <summary>
 /// Снапшот ворожих юнітів на мінімапі у конкретний момент часу. Будується адаптером
@@ -27,6 +31,11 @@ public sealed class EnemyPresenceSnapshot
 
     /// <summary>Сума ваг усіх крапок (із врахуванням stale-decay). Знаменник для absence.</summary>
     public float TotalMass { get; }
+
+    /// <summary>V1.5: скільки ворожих героїв зараз живі (5 = всі живі). Оновлюється трекером
+    /// через <c>PlayerDeathsChanged</c> + самовідновлення за приблизний respawn timer.
+    /// Використовується в <see cref="SampleAbsence"/> для динамічного знаменника confidence.</summary>
+    public int AliveEnemyCount { get; init; } = 5;
 
     public EnemyPresenceSnapshot(IReadOnlyList<EnemyDot> dots)
     {
@@ -62,6 +71,10 @@ public sealed class EnemyPresenceSnapshot
         float sum = 0f;
         foreach (var d in Dots)
         {
+            // V1.5: passive (fountain/respawning) крапки НЕ дають presence push.
+            // Сама крапка лишається в Dots щоб врахуватися в FreshCount/TotalMass
+            // (всі в фонтані → absence сильна → решта мапи зелена).
+            if (d.IsPassive) continue;
             float weight = StaleWeight(d.StaleSeconds) * d.Weight;
             if (weight <= 0f) continue;
             // Базовий радіус 2200 (~true sight). Ghost розпливається до ~3500.
@@ -91,8 +104,11 @@ public sealed class EnemyPresenceSnapshot
         float ratio = 1f - local / TotalMass;
         if (ratio < 0f) ratio = 0f;
         if (ratio > 1f) ratio = 1f;
-        // Помножимо на «впевненість» — скільки взагалі ворогів видно (≥4 → 1.0).
-        float confidence = Math.Min(1f, FreshCount / 4f);
+        // Помножимо на «впевненість» — скільки взагалі ворогів видно відносно живих.
+        // V1.5: динамічний знаменник — якщо 2 вороги померли (aliveCount=3), то бачити 3 живих
+        // = повна впевненість. Раніше знаменник був рівним 4 (3/4 = 0.75 conf).
+        int denom = Math.Max(1, AliveEnemyCount - 1);
+        float confidence = Math.Min(1f, FreshCount / (float)denom);
         return ratio * confidence;
     }
 }

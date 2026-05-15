@@ -30,6 +30,10 @@ public sealed class GameStateBus : IDisposable
     // Зміни LH/Denies/Kills/Deaths/Assists/Wards/Towers — для майбутньої score-системи.
     private readonly Subject<HeroDied> _heroDied = new();
     private readonly Subject<TowerDestroyed> _towerDestroyed = new();
+    // V1.5: єдиний надійний сигнал смерті ворожого в normal play (не spectator):
+    // Deaths-counter є public статистикою в GSI для всіх 10 гравців. Подія файриться рівно
+    // в момент смерті (на відміну від HeroDied, яка в нормал 1v5 файриться лише для локального).
+    private readonly Subject<PlayerDeathsChanged> _playerDeaths = new();
 
     public GameStateBus(int port = 3000)
     {
@@ -43,6 +47,7 @@ public sealed class GameStateBus : IDisposable
         _listener.PlayerRunesActivatedChanged += e => _runesActivated.OnNext(e.New);
         _listener.HeroDied += e => _heroDied.OnNext(e);
         _listener.TowerDestroyed += e => _towerDestroyed.OnNext(e);
+        _listener.PlayerDeathsChanged += e => _playerDeaths.OnNext(e);
     }
 
     public int Port { get; }
@@ -64,6 +69,39 @@ public sealed class GameStateBus : IDisposable
 
     /// <summary>Подія знищення вежі.</summary>
     public IObservable<TowerDestroyed> TowerDestroyed => _towerDestroyed;
+
+    /// <summary>V1.5: зміна лічильника смертей будь-якого гравця. Для ворожих є єдиним надійним
+    /// сигналом смерті в normal play. Подія містить <c>Player.PlayerID</c>, <c>Player.Team</c>, <c>New</c>, <c>Previous</c>.</summary>
+    public IObservable<PlayerDeathsChanged> PlayerDeaths => _playerDeaths;
+
+    /// <summary>
+    /// <b>true</b> коли гравець у активному матчі (draft / pre-game / game in progress),
+    /// <b>false</b> коли в головному меню, post-game stats screen, disconnect, або
+    /// якщо GSI не прислав ні одного тіку >5с (Dota закрита / в меню).
+    /// Використовується overlay-вікнами щоб ховатись поза грою.
+    /// </summary>
+    public IObservable<bool> InGame =>
+        Observable.Merge(
+            // Кожен GSI tick: чи стейт є «активним»?
+            _subject.Select(gs => gs is not null && IsActiveState(gs.Map?.GameState)),
+            // Watchdog: якщо за 5с нема жодного тіку — вважаємо що не в грі.
+            _subject.Throttle(TimeSpan.FromSeconds(5)).Select(_ => false))
+        .DistinctUntilChanged();
+
+    private static bool IsActiveState(object? gameState)
+    {
+        if (gameState is null) return false;
+        var s = gameState.ToString() ?? "";
+        // Виключаємо неактивні стани. Усе інше (HERO_SELECTION, STRATEGY_TIME,
+        // PRE_GAME, GAME_IN_PROGRESS, WAIT_FOR_*, TEAM_SHOWCASE, CUSTOM_GAME_SETUP)
+        // вважаємо активним матчем.
+        if (s.Contains("POST_GAME", StringComparison.Ordinal)) return false;
+        if (s.Contains("DISCONNECT", StringComparison.Ordinal)) return false;
+        if (s.Contains("INIT", StringComparison.Ordinal)) return false;
+        if (s.Contains("Undefined", StringComparison.OrdinalIgnoreCase)) return false;
+        if (s.Contains("LAST", StringComparison.Ordinal)) return false;
+        return true;
+    }
 
     public GameState? CurrentState => _subject.Value;
 
@@ -111,6 +149,7 @@ public sealed class GameStateBus : IDisposable
         _runesActivated.OnCompleted();
         _heroDied.OnCompleted();
         _towerDestroyed.OnCompleted();
+        _playerDeaths.OnCompleted();
     }
 }
 

@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using D2Helper.UI.ViewModels;
 using D2Helper.UI.Views;
 using D2Helper.Vision;
+using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 
 namespace D2Helper.UI;
@@ -38,13 +40,14 @@ public partial class App : Application
             overlay.Show();
 
             // Vision (Phase V1.1): danger-heatmap поверх ігрової мінімапи + опційний debug-widget.
+            DangerHeatmapWindow? heatmapWin = null;
             if (OperatingSystem.IsWindows())
             {
                 _vision = new VisionLoop();
                 _vision.Start();
 
                 // In-game heatmap overlay — головний продукт (transparent, click-through, no chrome).
-                var heatmapWin = new DangerHeatmapWindow(_vision, vm.GameStateBus);
+                heatmapWin = new DangerHeatmapWindow(_vision, vm.GameStateBus);
                 heatmapWin.Show();
 
                 // Debug-widget (захоплена мінімапа + fog-маска) — прихований за замовчуванням,
@@ -60,6 +63,19 @@ public partial class App : Application
                     _vision?.Dispose();
                 };
             }
+
+            // Centralized in-game gate: ховаємо quest-overlay та heatmap, коли користувач
+            // не в матчі (головне меню, post-game stats screen, disconnect, >5с без GSI).
+            // OverlayWindow має свій Alt+F9 toggle через _overlayVisible/Opacity — ми не
+            // чіпаємо це, а просто множимо: фактична Opacity = user_toggle * inGame_gate.
+            // Для простоти зараз — повністю перевизначаємо Opacity тут (overlay-вікно
+            // вже початково Visible=true, user toggle переписує Opacity сам коли натискається).
+            vm.GameStateBus.InGame
+                .Subscribe(inGame => Dispatcher.UIThread.Post(() =>
+                {
+                    overlay.Opacity = inGame ? 1.0 : 0.0;
+                    if (heatmapWin is not null) heatmapWin.Opacity = inGame ? 1.0 : 0.0;
+                }));
         }
         base.OnFrameworkInitializationCompleted();
     }

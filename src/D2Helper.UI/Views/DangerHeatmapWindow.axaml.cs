@@ -32,6 +32,7 @@ public partial class DangerHeatmapWindow : Window
     private DispatcherTimer? _positionTimer;
     private IDisposable? _gsiSub;
     private IDisposable? _frameSub;
+    private IDisposable? _deathSub;
 
     private PlayerSide _side = PlayerSide.Radiant;
     private bool _sideLocked;
@@ -77,12 +78,17 @@ public partial class DangerHeatmapWindow : Window
             _frameSub = _vision.Frames
                 .Sample(TimeSpan.FromMilliseconds(750))
                 .Subscribe(frame => Dispatcher.UIThread.Post(() => OnVisionFrame(frame)));
+            // V1.5: ворожа смерть → помітити PlayerID як «мертвий до» в трекері. Це зменшує AliveEnemyCount
+            // в EnemyPresenceSnapshot → absence-confidence досягає 1.0 з меншою к-стю fresh enemies.
+            _deathSub = _gsi.PlayerDeaths
+                .Subscribe(evt => Dispatcher.UIThread.Post(() => OnEnemyDeath(evt)));
         };
         Closed += (_, _) =>
         {
             _positionTimer?.Stop();
             _gsiSub?.Dispose();
             _frameSub?.Dispose();
+            _deathSub?.Dispose();
         };
     }
 
@@ -250,6 +256,43 @@ public partial class DangerHeatmapWindow : Window
         {
             // ignore — наступний тік виправить
         }
+    }
+
+    /// <summary>
+    /// V1.5: GSI <c>PlayerDeathsChanged</c> для будь-якого гравця. Якщо це ворог (team != my side
+    /// AND new > previous) — повідомляємо tracker'у. Це єдиний надійний спосіб дізнатись що ворог
+    /// помер у normal play (HeroDied для ворогів не фаїрить — їх IsAlive не expose'ється).
+    /// </summary>
+    private void OnEnemyDeath(Dota2GSI.EventMessages.PlayerDeathsChanged evt)
+    {
+        try
+        {
+            if (evt is null || evt.New <= evt.Previous) return;
+            var p = evt.Player;
+            if (p is null) return;
+            // Перевіряємо що це ВОРОГ (FullPlayerDetails.Details.Team — PlayerTeam enum).
+            var team = p.Details?.Team.ToString() ?? "";
+            bool isEnemy = (_side == PlayerSide.Radiant && team.Equals("Dire", StringComparison.OrdinalIgnoreCase))
+                        || (_side == PlayerSide.Dire && team.Equals("Radiant", StringComparison.OrdinalIgnoreCase));
+            if (!isEnemy) return;
+            // Естімейт respawn timer: lvl ≈ min(30, 2 + min/1) → respawn ≈ min(80, 12 + 4*lvl).
+            // Для V1.5 беремо консервативну середню: 35s. Достатньо щоб придушити ghost decay.
+            float respawnSec = EstimateRespawn(_gameTime);
+            _presenceTracker.MarkEnemyDied(p.PlayerID, DateTime.UtcNow, respawnSec);
+        }
+        catch
+        {
+            // ignore — наступний тік виправить
+        }
+    }
+
+    private static float EstimateRespawn(float gameTimeSec)
+    {
+        // Дуже груба евристика: lvl ≈ 2 + minutes (clamp 2..30); respawn = 12 + 4*lvl, max 80s.
+        float minutes = Math.Max(0f, gameTimeSec / 60f);
+        float lvl = Math.Min(30f, 2f + minutes);
+        float r = 12f + 4f * lvl;
+        return Math.Min(80f, Math.Max(15f, r));
     }
 
     private void OnVisionFrame(VisionFrame frame)

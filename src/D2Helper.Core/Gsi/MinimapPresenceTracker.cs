@@ -23,11 +23,24 @@ public sealed class MinimapPresenceTracker
     private List<EnemyDot>? _lastAllies;
     private DateTime _lastAlliesAt = DateTime.MinValue;
 
+    // V1.5: позиція ворожого фонтана для класифікації IsPassive (в фонтані → не загроза).
+    // Встановлюється при першому UpdateForce зі знанням сторони; default — Dire fountain.
+    private float _enemyFountainX = 7000f;
+    private float _enemyFountainY = 7000f;
+
+    // V1.5: для кожного ворожого PlayerID — час приблизного respawn'у. Поки now < deadUntil,
+    // герой вважається мертвим → вилучається з AliveEnemyCount.
+    private readonly Dictionary<int, DateTime> _enemyDeadUntil = new();
+
     /// <summary>Скільки секунд тримаємо ghost-крапку без оновлень перед drop.</summary>
     public float MaxStaleSeconds { get; init; } = 15f;
 
     /// <summary>Скільки секунд тримаємо «застиглий» ally snapshot коли GSI-тік прийшов без minimap.</summary>
     public float AllyHoldSeconds { get; init; } = 3f;
+
+    /// <summary>V1.5: радіус фонтана (world units) — крапка в цій зоні = IsPassive.
+    /// 1800 покриває fountain + ancient + shrine area.</summary>
+    public float FountainRadius { get; init; } = 1800f;
 
     /// <summary>
     /// Будує снапшот ворожих героїв з поточного GameState.
@@ -63,6 +76,10 @@ public sealed class MinimapPresenceTracker
 
         var enemyTeam = myIsRadiant ? PlayerTeam.Dire : PlayerTeam.Radiant;
         var allyTeam = myIsRadiant ? PlayerTeam.Radiant : PlayerTeam.Dire;
+
+        // V1.5: фіксуємо фонтан ворога (в їх куті карти).
+        _enemyFountainX = myIsRadiant ? 7000f : -7000f;
+        _enemyFountainY = myIsRadiant ? 7000f : -7000f;
 
         var allyDots = new List<EnemyDot>();
 
@@ -116,10 +133,38 @@ public sealed class MinimapPresenceTracker
                 toRemove.Add(name);
                 continue;
             }
-            enemyDots.Add(new EnemyDot(info.Wx, info.Wy, stale));
+            // V1.5: класифікуємо як passive якщо остання позиція — ворожий фонтан (респавн/прикриває).
+            // Свіжі passive крапки враховуються в FreshCount/TotalMass (absence) але НЕ пушать червоним.
+            float fdx = info.Wx - _enemyFountainX;
+            float fdy = info.Wy - _enemyFountainY;
+            bool isPassive = (fdx * fdx + fdy * fdy) <= (FountainRadius * FountainRadius);
+            enemyDots.Add(new EnemyDot(info.Wx, info.Wy, stale, Weight: 1f, IsPassive: isPassive));
         }
         foreach (var n in toRemove) _lastSeen.Remove(n);
-        return new EnemyPresenceSnapshot(enemyDots);
+
+        // V1.5: підрахуємо aliveCount з _enemyDeadUntil.
+        int dead = 0;
+        var staleDeath = new List<int>();
+        foreach (var (pid, until) in _enemyDeadUntil)
+        {
+            if (now < until) dead++;
+            else staleDeath.Add(pid);
+        }
+        foreach (var pid in staleDeath) _enemyDeadUntil.Remove(pid);
+        int alive = Math.Max(0, 5 - dead);
+
+        return new EnemyPresenceSnapshot(enemyDots) { AliveEnemyCount = alive };
+    }
+
+    /// <summary>
+    /// V1.5: повідомити трекер що ворожий герой з <paramref name="playerId"/> зараз помер (з GSI
+    /// події <c>PlayerDeathsChanged</c>). Це звужує «вікно впевненості» в absence: якщо реально
+    /// живих 3, то бачити 3 на мапі вже = повна впевненість (решта мапи зелена).
+    /// </summary>
+    /// <param name="respawnSec">Приблизний respawn timer — коли вважати героя знову живим. ~35s по дефолту.</param>
+    public void MarkEnemyDied(int playerId, DateTime now, float respawnSec = 35f)
+    {
+        _enemyDeadUntil[playerId] = now + TimeSpan.FromSeconds(respawnSec);
     }
 
     /// <summary>Скидає state (напр. при новому матчі).</summary>
@@ -128,5 +173,6 @@ public sealed class MinimapPresenceTracker
         _lastSeen.Clear();
         _lastAllies = null;
         _lastAlliesAt = DateTime.MinValue;
+        _enemyDeadUntil.Clear();
     }
 }
