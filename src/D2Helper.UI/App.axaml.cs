@@ -35,9 +35,10 @@ public partial class App : Application
             var vm = new MainWindowViewModel();
             desktop.MainWindow = new MainWindow { DataContext = vm };
 
-            // Прозорий overlay поверх Dota з тими ж активними квестами.
-            var overlay = new OverlayWindow { DataContext = vm };
-            overlay.Show();
+            // V1.5.1: вимкнули quest-overlay за запитом юзера (фокус на heatmap'і).
+            // Щоб повернути — розкоментувати нижче + підписку на InGame.
+            // var overlay = new OverlayWindow { DataContext = vm };
+            // overlay.Show();
 
             // Vision (Phase V1.1): danger-heatmap поверх ігрової мінімапи + опційний debug-widget.
             DangerHeatmapWindow? heatmapWin = null;
@@ -51,7 +52,7 @@ public partial class App : Application
                 heatmapWin.Show();
 
                 // Debug-widget (захоплена мінімапа + fog-маска) — прихований за замовчуванням,
-                // Alt+F10 розкриває. Корисний для калібрування і верифікації.
+                // Alt+F6 розкриває. Корисний для калібрування і верифікації.
                 _visionVm = new MinimapOverlayViewModel(_vision, vm.GameStateBus);
                 var visionWin = new MinimapOverlayWindow { DataContext = _visionVm };
                 visionWin.Show();
@@ -64,16 +65,11 @@ public partial class App : Application
                 };
             }
 
-            // Centralized in-game gate: ховаємо quest-overlay та heatmap, коли користувач
-            // не в матчі (головне меню, post-game stats screen, disconnect, >5с без GSI).
-            // OverlayWindow має свій Alt+F9 toggle через _overlayVisible/Opacity — ми не
-            // чіпаємо це, а просто множимо: фактична Opacity = user_toggle * inGame_gate.
-            // Для простоти зараз — повністю перевизначаємо Opacity тут (overlay-вікно
-            // вже початково Visible=true, user toggle переписує Opacity сам коли натискається).
+            // Centralized in-game gate: ховаємо heatmap коли користувач не в матчі
+            // (головне меню, post-game stats screen, disconnect, >5с без GSI).
             vm.GameStateBus.InGame
                 .Subscribe(inGame => Dispatcher.UIThread.Post(() =>
                 {
-                    overlay.Opacity = inGame ? 1.0 : 0.0;
                     if (heatmapWin is not null) heatmapWin.Opacity = inGame ? 1.0 : 0.0;
                 }));
         }

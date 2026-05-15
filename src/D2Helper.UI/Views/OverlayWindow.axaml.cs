@@ -56,7 +56,7 @@ public partial class OverlayWindow : Window
     private static extern short GetAsyncKeyState(int vKey);
 
     private const int VK_MENU = 0x12; // Alt
-    private const int VK_F9 = 0x78;
+    private const int VK_F7 = 0x76;
 
     private void MakeClickThrough()
     {
@@ -69,7 +69,7 @@ public partial class OverlayWindow : Window
     }
 
     /// <summary>
-    /// Глобальний хоткей Alt+F9 — вмикає/вимикає overlay. Реалізовано через
+    /// Глобальний хоткей Alt+F7 — вмикає/вимикає overlay. Реалізовано через
     /// polling GetAsyncKeyState (100ms) бо це працює навіть коли фокус у Доті,
     /// не вимагає RegisterHotKey + WndProc підписки, і не блокує клавіатуру
     /// для гри (на відміну від глобального хука).
@@ -81,7 +81,7 @@ public partial class OverlayWindow : Window
         _hotkeyTimer.Tick += (_, _) =>
         {
             var alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-            var f9 = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
+            var f9 = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
             var down = alt && f9;
             // Edge-detect: реагуємо лише на момент натискання.
             if (down && !_prevHotkeyDown) ToggleVisibility();

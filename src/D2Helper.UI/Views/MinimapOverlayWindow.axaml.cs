@@ -17,7 +17,7 @@ public partial class MinimapOverlayWindow : Window
     private DispatcherTimer? _hotkeyTimer;
     private bool _prevHotkeyDown;
     // За замовчуванням debug-widget прихований (App.axaml.cs виставляє Opacity=0).
-    // Alt+F10 toggle → перший прес показує його (Opacity=1).
+    // Alt+F6 toggle → перший прес показує його (Opacity=1).
     private bool _isVisible = false;
 
     public MinimapOverlayWindow()
@@ -72,7 +72,7 @@ public partial class MinimapOverlayWindow : Window
     private static extern short GetAsyncKeyState(int vKey);
 
     private const int VK_MENU = 0x12;  // Alt
-    private const int VK_F10 = 0x79;
+    private const int VK_F6 = 0x75;
 
     private void ApplyToolWindowStyle()
     {
@@ -88,7 +88,7 @@ public partial class MinimapOverlayWindow : Window
     /// Перемикає WS_EX_TRANSPARENT / WS_EX_LAYERED на debug-widget вікні.
     /// Коли воно сховане (Opacity=0) — має пропускати кліки на ігрову мінімапу
     /// (інакше блокує click-through нашого heatmap-вікна що знаходиться під ним).
-    /// Коли користувач показав його через Alt+F10 — знімаємо click-through, щоб
+    /// Коли користувач показав його через Alt+F6 — знімаємо click-through, щоб
     /// він міг тягти/калібрувати.
     /// </summary>
     private void SetClickThrough(bool enable)
@@ -104,7 +104,7 @@ public partial class MinimapOverlayWindow : Window
         SetWindowLong(handle, GWL_EXSTYLE, ex);
     }
 
-    /// <summary>Глобальний хоткей Alt+F10 — показати/сховати vision overlay.</summary>
+    /// <summary>Глобальний хоткей Alt+F6 — показати/сховати vision overlay.</summary>
     private void StartHotkeyWatcher()
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -112,7 +112,7 @@ public partial class MinimapOverlayWindow : Window
         _hotkeyTimer.Tick += (_, _) =>
         {
             var alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-            var f10 = (GetAsyncKeyState(VK_F10) & 0x8000) != 0;
+            var f10 = (GetAsyncKeyState(VK_F6) & 0x8000) != 0;
             var down = alt && f10;
             if (down && !_prevHotkeyDown) ToggleVisibility();
             _prevHotkeyDown = down;
