@@ -71,10 +71,10 @@ public sealed class EnemyPresenceSnapshot
         float sum = 0f;
         foreach (var d in Dots)
         {
-            // V1.5: passive (fountain/respawning) крапки НЕ дають presence push.
-            // Сама крапка лишається в Dots щоб врахуватися в FreshCount/TotalMass
-            // (всі в фонтані → absence сильна → решта мапи зелена).
-            if (d.IsPassive) continue;
+            // V1.6: passive (fountain) крапки ТЕЖ пушать presence на своїй позиції.
+            // Це тримає ворожий фонтан "червоним" природно (без штучних gate'ів).
+            // Поза фонтаном їхній внесок гасне за гаусом — й absence-логіка
+            // у DangerZoneModel чисто зменшує danger у віддалених порожніх зонах.
             float weight = StaleWeight(d.StaleSeconds) * d.Weight;
             if (weight <= 0f) continue;
             // Базовий радіус 2200 (~true sight). Ghost розпливається до ~3500.

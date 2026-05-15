@@ -87,12 +87,12 @@ public class EnemyPresenceFieldTests
     }
 
     [Fact]
-    public void DangerDynamic_AbsenceMakesOwnZoneSafer_NotEnemyZone()
+    public void DangerDynamic_AbsenceCrushesEverywhere_PresenceOverrides()
     {
-        // V1.5.2: absence-crush діє ТІЛЬКИ у своїй/нейтральній зоні (baseDanger < 0.55).
-        // На ворожому highground абсолютна геометрична небезпека лишається.
+        // V1.6: absence-crush діє ВСЮДИ без gate. Що тримає ворожу зону червоною —
+        // це наявність presenceLocal там (вороги фізично там і є).
 
-        // Випадок А: своя territory — absence має знизити danger.
+        // Випадок А: своя territory + absence=1 (вороги деінде) → знижується.
         var ownBase = DangerZoneModel.ComputeDangerDynamic(
             wx: -3000, wy: -3000, side: PlayerSide.Radiant, gameTime: 600);
         var ownWithAbsence = DangerZoneModel.ComputeDangerDynamic(
@@ -101,14 +101,21 @@ public class EnemyPresenceFieldTests
         Assert.True(ownWithAbsence < ownBase - 0.05f,
             $"own zone with absence=1 should drop; was {ownBase}, now {ownWithAbsence}");
 
-        // Випадок Б: Dire highground — absence НЕ має робити її безпечною.
-        var enemyBase = DangerZoneModel.ComputeDangerDynamic(
-            wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600);
-        Assert.True(enemyBase > 0.7f, $"Dire highground should be dangerous, got {enemyBase}");
-        var enemyWithAbsence = DangerZoneModel.ComputeDangerDynamic(
+        // Випадок Б: Dire highground БЕЗ presence-інфо + absence=1 — теж знижується
+        // (бо вороги підтверджено деінде, цей куток порожній). Це фіча V1.6.
+        var enemyWithAbsenceOnly = DangerZoneModel.ComputeDangerDynamic(
             wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600,
             absenceScore: 1.0f);
-        Assert.Equal(enemyBase, enemyWithAbsence);
+        Assert.True(enemyWithAbsenceOnly < 0.5f,
+            $"enemy highground with confirmed absence should drop; got {enemyWithAbsenceOnly}");
+
+        // Випадок В: Dire highground З presenceLocal (вороги саме там) → лишається червоним
+        // навіть якщо absenceScore (метрика "всі купкою деінде") теж високий.
+        var enemyWithPresence = DangerZoneModel.ComputeDangerDynamic(
+            wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600,
+            presenceLocal: 1.0f, absenceScore: 0.5f);
+        Assert.True(enemyWithPresence > 0.7f,
+            $"enemy highground with presence locally stays red; got {enemyWithPresence}");
     }
 
     [Fact]
@@ -166,27 +173,31 @@ public class EnemyPresenceFieldTests
         Assert.Equal(a, b);
     }
 
-    // ===== V1.5: fountain-passive + death-aware absence =====
+    // ===== V1.6: passive-dot pushes presence, absence has no gate =====
 
     [Fact]
-    public void V15_PassiveDot_DoesNotPushPresence_ButCountsInAbsence()
+    public void V16_PassiveDot_StillPushesPresence_KeepingFountainHot()
     {
-        // Ворог у фонтані (passive=true) + 1 активний далеко. Поряд із passive → presence ~0,
-        // але absence-знаменник усе одно бачить його через FreshCount/TotalMass.
+        // Ворог у фонтані (passive=true) має пушити presence НА СВОЇЙ ПОЗИЦІЇ.
+        // Це тримає ворожий фонтан "червоним" і робить absence там нульовим.
         var dots = new[]
         {
             new EnemyDot(7000f, 7000f, 0f, Weight: 1f, IsPassive: true),
             new EnemyDot(5000f, 5000f, 0f, Weight: 1f, IsPassive: false),
         };
         var snap = new EnemyPresenceSnapshot(dots);
-        // Біля passive-крапки SampleLocal майже 0 (тільки внесок другої з відстані).
+
+        // Біля passive-крапки local має бути не менший за біля активної (обидва — повна вага).
         var atPassive = snap.SampleLocal(7000f, 7000f);
         var atActive = snap.SampleLocal(5000f, 5000f);
-        Assert.True(atPassive < atActive * 0.3f,
-            $"passive повинна давати майже 0 push; passive={atPassive}, active={atActive}");
+        Assert.True(atPassive > 0.5f,
+            $"passive повинна пушити presence у своїй позиції; got {atPassive}");
+        Assert.True(Math.Abs(atPassive - atActive) < 0.3f,
+            $"passive і active мають давати схожий локальний push; passive={atPassive}, active={atActive}");
 
-        // Але обидва — fresh → FreshCount = 2.
-        Assert.Equal(2, snap.FreshCount);
+        // На самій passive-точці absence ≈ 0 (бо ratio ≈ 0).
+        Assert.True(snap.SampleAbsence(7000f, 7000f) < 0.3f,
+            "absence біля passive-крапки має бути низьким");
     }
 
     [Fact]

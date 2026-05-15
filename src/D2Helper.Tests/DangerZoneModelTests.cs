@@ -78,17 +78,16 @@ public class DangerZoneModelTests
     }
 
     [Fact]
-    public void AbsenceCrush_DoesNotMakeEnemyTerritorySafe()
+    public void AbsenceCrush_WithPresenceAtTarget_KeepsEnemyTerritoryRed()
     {
-        // V1.5.2 regression guard: absence (всі вороги passive в фонтані → absence≈1
-        // на всій мапі) НЕ має знижувати danger у ворожій зоні. Інакше вся карта зелена
-        // після horn'у на 0:00.
-        // Ворожий T2 mid (~2500,2500) — geometric base сильно червоний.
-        var withAbsence = DangerZoneModel.ComputeDangerDynamic(
+        // V1.6: на ворожій highground stays red ТІЛЬКИ якщо там presenceLocal > 0
+        // (вороги фізично там — фонтан defending, або push). Якщо ворогів там нема
+        // (absence=1) → природно знижується. Це і є те, що бачить гравець на minimap.
+        var withPresenceAtT2 = DangerZoneModel.ComputeDangerDynamic(
             wx: 2500, wy: 2500, side: PlayerSide.Radiant, gameTime: 60,
-            absenceScore: 1f);
-        Assert.True(withAbsence > 0.60f,
-            $"enemy T2 with absence=1 should still be red (>0.60), got {withAbsence:F3}");
+            presenceLocal: 1f, absenceScore: 0.5f);
+        Assert.True(withPresenceAtT2 > 0.60f,
+            $"enemy T2 with enemies actually there (presence=1) stays red, got {withPresenceAtT2:F3}");
 
         // А свій jungle при absence=1 — навпаки має знизитись (це фіча, не баг).
         var ownJungleSafe = DangerZoneModel.ComputeDangerDynamic(
