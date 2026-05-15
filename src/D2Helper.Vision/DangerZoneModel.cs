@@ -167,9 +167,18 @@ public static class DangerZoneModel
         //   - відсутність зафіксованих смертей у вибірці != безпека (вибірка ~1k матчів).
         //     Тому empirical може ТІЛЬКИ збільшити danger, ніколи не знизити.
         //   - формула: blended = geom*(1-w) + emp*w; беремо max(danger, blended).
+        //   - V1.5.4: на ранній грі (0..5min) геометрична модель ще "пласка" (phaseShift майже 0),
+        //     тому покладаємось на empirical сильніше. Вага лінійно спадає від 2x до 1x на 0..600s.
         if (!float.IsNaN(empiricalDensity) && empiricalDensity > 0f)
         {
-            float blended = danger * (1f - empiricalWeight) + empiricalDensity * empiricalWeight;
+            float effectiveEmpiricalWeight = empiricalWeight;
+            if (gameTime < 600f)
+            {
+                float earlyBoost = 1f - MathF.Max(0f, gameTime) / 600f; // 1 на t=0, 0 на t=600
+                effectiveEmpiricalWeight = empiricalWeight * (1f + earlyBoost); // 2x → 1x
+                if (effectiveEmpiricalWeight > 0.95f) effectiveEmpiricalWeight = 0.95f;
+            }
+            float blended = danger * (1f - effectiveEmpiricalWeight) + empiricalDensity * effectiveEmpiricalWeight;
             if (blended > danger) danger = blended;
         }
 
