@@ -23,5 +23,6 @@ data/training-set*.csv
 data/training-set*.parquet
 data/local-states.db
 data/smoke.bin
+data/heatmap-vis/
 
 test-out.txt

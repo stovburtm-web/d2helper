@@ -19,6 +19,7 @@ int mmrMax = 6000;
 string patch = "7.41c";
 bool noRegionFilter = false;
 string? outOverride = null;
+string? visualizeBin = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -30,11 +31,19 @@ for (int i = 0; i < args.Length; i++)
         case "--patch": patch = args[++i]; break;
         case "--out": outOverride = args[++i]; break;
         case "--no-region-filter": noRegionFilter = true; break;
+        case "--visualize": visualizeBin = args[++i]; break;
         case "--help":
         case "-h":
             Console.WriteLine("Usage: D2Helper.Knowledge.Cli [--limit N] [--mmr-min N] [--mmr-max N] [--patch v] [--out path] [--no-region-filter]");
+            Console.WriteLine("       D2Helper.Knowledge.Cli --visualize <path.bin>   # dump PNGs for QA");
             return 0;
     }
+}
+
+// === --visualize: dump PNG візуалізацій кожного (side, time-bin) зрізу ===
+if (visualizeBin is not null)
+{
+    return HeatmapVisualizer.Run(visualizeBin);
 }
 
 var outPath = outOverride ?? Path.Combine("data", $"death-heatmap-{patch}-eu-{mmrMin/1000}to{mmrMax/1000}k.bin");
