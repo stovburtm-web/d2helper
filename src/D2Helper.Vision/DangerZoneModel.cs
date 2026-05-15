@@ -198,14 +198,24 @@ public static class DangerZoneModel
         }
         if (!float.IsNaN(absenceScore) && absenceScore > 0f)
         {
-            // V1.5.2: absence-crush діє ТІЛЬКИ у власній/нейтральній зоні (baseDanger < 0.55).
-            // На ворожій території (T1/T2/jungle/fountain) геометрична небезпека лишається —
-            // навіть якщо всі вороги в фонтані (passive → нульовий local, але великий
-            // FreshCount/TotalMass), їхня територія фізично далеко і небезпечна. Без цього
-            // gate "fountain-passive" з V1.5 робив усю мапу зеленою після horn.
+            // V1.5.5: absence-crush діє повністю у своїй/нейтральній зоні (baseDanger < 0.55),
+            // і ЧАСТКОВО на ворожій території — але лише коли fog низький (cell зараз видно
+            // через варди/team vision). Це покриває кейс "3 вороги у фонтані + варди в дайрі →
+            // jungle Dire зараз дійсно не червоний". На fogDensity≈0.5 (нейтраль/немає сигналу)
+            // на ворожій стороні ефект нульовий — щоб не повертати баг V1.5 ("вся карта зелена
+            // після horn"). Лінійна інтерполяція: fog 0.5→1.0, fog 0.3→0.6, fog 0.1→0.2.
             if (baseDanger < 0.55f)
             {
                 danger *= 1f - absenceScore * absenceWeight;
+            }
+            else
+            {
+                float visibilityFactor = (0.5f - fogDensity) * 2f; // 1 на повній видимості, 0 на нейтралі
+                if (visibilityFactor > 0f)
+                {
+                    if (visibilityFactor > 1f) visibilityFactor = 1f;
+                    danger *= 1f - absenceScore * absenceWeight * visibilityFactor;
+                }
             }
         }
 
