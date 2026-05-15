@@ -128,8 +128,7 @@ public static class DangerZoneModel
         float friendlyControl = float.NaN,
         float friendlyControlWeight = 0.50f)
     {
-        float baseDanger = ComputeDanger(wx, wy, side, gameTime);
-        float danger = baseDanger;
+        float danger = ComputeDanger(wx, wy, side, gameTime);
 
         // Fog modifier — асиметричний:
         //   - темніше за нейтраль (fogDensity > 0.5): ЗАВЖДИ додає danger (ховається hero/гланк).
@@ -189,15 +188,7 @@ public static class DangerZoneModel
         }
         if (!float.IsNaN(absenceScore) && absenceScore > 0f)
         {
-            // V1.5.2: absence-crush діє ТІЛЬКИ у власній/нейтральній зоні (baseDanger < 0.55).
-            // На ворожій території (T1/T2/jungle/fountain) геометрична небезпека лишається —
-            // навіть якщо всі вороги в фонтані (passive → нульовий local, але великий
-            // FreshCount/TotalMass), їхня територія фізично далеко і небезпечна. Без цього
-            // gate "fountain-passive" з V1.5 робив усю мапу зеленою після horn.
-            if (baseDanger < 0.55f)
-            {
-                danger *= 1f - absenceScore * absenceWeight;
-            }
+            danger *= 1f - absenceScore * absenceWeight;
         }
 
         // V1.4: friendly control — союзні герої/крепи поряд → загроза знижується.
