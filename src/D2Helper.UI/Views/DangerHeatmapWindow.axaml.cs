@@ -8,6 +8,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using D2Helper.Core.Gsi;
+using D2Helper.Core.Models;
 using D2Helper.Vision;
 using Dota2GSI;
 using DBitmap = System.Drawing.Bitmap;
@@ -38,6 +39,8 @@ public partial class DangerHeatmapWindow : Window
     private (float X, float Y)? _heroWorld;
     private float[,]? _fogField;
     private EmpiricalDeathField? _empiricalField;
+    private readonly MinimapPresenceTracker _presenceTracker = new();
+    private EnemyPresenceSnapshot? _presence;
     private DateTime _lastRender = DateTime.MinValue;
     private int _renderedW = -1, _renderedH = -1;
     private PlayerSide _renderedSide;
@@ -232,6 +235,9 @@ public partial class DangerHeatmapWindow : Window
                 _heroWorld = null;
             }
 
+            // V1.3: оновлюємо ворожий presence-snapshot з minimap.Elements (з last-seen ghost'ами).
+            _presence = _presenceTracker.Update(gs, _side == PlayerSide.Radiant, DateTime.UtcNow);
+
             _dynamicDirty = true;
 
             var profile = _vision.Profile;
@@ -280,7 +286,8 @@ public partial class DangerHeatmapWindow : Window
                 w, h, _side, _gameTime, rotated,
                 fogField: _fogField,
                 heroWorld: _heroWorld,
-                empirical: _empiricalField);
+                empirical: _empiricalField,
+                presence: _presence);
             using var ms = new MemoryStream();
             dbmp.Save(ms, DImageFormat.Png);
             ms.Position = 0;

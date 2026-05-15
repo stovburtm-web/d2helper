@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.Versioning;
+using D2Helper.Core.Models;
 
 namespace D2Helper.Vision;
 
@@ -24,7 +25,8 @@ public static class DangerHeatmapRenderer
                                        bool isRotated180, byte alpha = 110,
                                        float[,]? fogField = null,
                                        (float X, float Y)? heroWorld = null,
-                                       EmpiricalDeathField? empirical = null)
+                                       EmpiricalDeathField? empirical = null,
+                                       EnemyPresenceSnapshot? presence = null)
     {
         var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
         var data = bmp.LockBits(new Rectangle(0, 0, width, height),
@@ -52,11 +54,15 @@ public static class DangerHeatmapRenderer
                     float emp = empirical is null
                         ? float.NaN
                         : empirical.Sample(wx, wy, side, gameTime);
+                    float pres = presence is null ? float.NaN : presence.SampleLocal(wx, wy);
+                    float absc = presence is null ? float.NaN : presence.SampleAbsence(wx, wy);
                     float danger = DangerZoneModel.ComputeDangerDynamic(
                         wx, wy, side, gameTime,
                         fogDensity: fog,
                         heroX: hx, heroY: hy,
-                        empiricalDensity: emp);
+                        empiricalDensity: emp,
+                        presenceLocal: pres,
+                        absenceScore: absc);
 
                     // 3 чіткі зони з різкими межами. Жовтий — вузька contested-смуга.
                     var (r, g, b, a) = DangerToBand(danger, alpha);

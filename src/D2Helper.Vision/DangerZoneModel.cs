@@ -102,6 +102,12 @@ public static class DangerZoneModel
     /// <c>NaN</c> = немає сигналу (немає bin'а / поза картою). Дефолт NaN.</param>
     /// <param name="empiricalWeight">Вага empirical-density: при 1.0 повністю переписує danger вгору
     /// у точках з частими смертями. Дефолт 0.35 — м'який nudge поверх геометрії.</param>
+    /// <param name="presenceLocal">V1.3: локальна щільність ворожих юнітів навколо точки (0..~2+).
+    /// 0 = жодного ворога поряд; ~1 = один ворог точно тут; &gt;1 = кластер. <c>NaN</c> = немає даних.</param>
+    /// <param name="presenceWeight">Множник для presence-nudge: при 1.0 один ворог поряд додає ~0.6 danger.</param>
+    /// <param name="absenceScore">V1.3: 0..1, наскільки впевнено всі вороги ДАЛЕКО (anti-presence).
+    /// При absence=1 і aggressive ваги — точка стає на ~75% безпечнішою. <c>NaN</c> = вимкнено.</param>
+    /// <param name="absenceWeight">Aggressive за дефолтом (0.75): сильно віримо minimap'у.</param>
     public static float ComputeDangerDynamic(
         float wx, float wy, PlayerSide side, float gameTime,
         float fogDensity = 0.5f,
@@ -110,7 +116,11 @@ public static class DangerZoneModel
         float fogWeight = 0.35f,
         float heroHaloWeight = 0.40f,
         float empiricalDensity = float.NaN,
-        float empiricalWeight = 0.35f)
+        float empiricalWeight = 0.35f,
+        float presenceLocal = float.NaN,
+        float presenceWeight = 0.60f,
+        float absenceScore = float.NaN,
+        float absenceWeight = 0.75f)
     {
         float danger = ComputeDanger(wx, wy, side, gameTime);
 
@@ -154,6 +164,25 @@ public static class DangerZoneModel
         {
             float blended = danger * (1f - empiricalWeight) + empiricalDensity * empiricalWeight;
             if (blended > danger) danger = blended;
+        }
+
+        // V1.3: minimap presence — реальні позиції видимих ворогів.
+        // Логіка симетрична до geometric model:
+        //   - presenceLocal > 0 → ворог тут і зараз → DANGER += k_pres * min(1, presence).
+        //     Це переб'є будь-який «зелений geometric» — якщо ворог стоїть у твоїй базі, це не safe.
+        //   - absenceScore > 0 → вороги КУПКОЮ деінде → danger *= (1 - k_abs * absence).
+        //     Це opens сейф-зони у «червоному geometric» (твій own jungle коли пачка пушить мід).
+        //   - Порядок важливий: спершу +presence (можемо зробити локально гарячим), потім -absence
+        //     (масштабуємо решту карти вниз). Локально-гаряча точка зберігає високий danger.
+        if (!float.IsNaN(presenceLocal) && presenceLocal > 0f)
+        {
+            float p = presenceLocal;
+            if (p > 1.5f) p = 1.5f; // soft cap — кластер з 5 не може зробити >2x
+            danger += p * presenceWeight;
+        }
+        if (!float.IsNaN(absenceScore) && absenceScore > 0f)
+        {
+            danger *= 1f - absenceScore * absenceWeight;
         }
 
         if (danger < 0f) danger = 0f;
