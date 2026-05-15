@@ -17,8 +17,17 @@ public sealed class MinimapPresenceTracker
 {
     private readonly Dictionary<string, (float Wx, float Wy, DateTime LastSeen)> _lastSeen = new();
 
+    // V1.4.1: кеш останнього ally snapshot. GSI іноді присилає тіки без Minimap.Elements
+    // (паузи, death-cam, replay-frame'и) — щоб overlay не «миготів» між повним heatmap'ом
+    // і чистою геометрією, ми тримаємо попередню картинку союзників до ~3с.
+    private List<EnemyDot>? _lastAllies;
+    private DateTime _lastAlliesAt = DateTime.MinValue;
+
     /// <summary>Скільки секунд тримаємо ghost-крапку без оновлень перед drop.</summary>
     public float MaxStaleSeconds { get; init; } = 15f;
+
+    /// <summary>Скільки секунд тримаємо «застиглий» ally snapshot коли GSI-тік прийшов без minimap.</summary>
+    public float AllyHoldSeconds { get; init; } = 3f;
 
     /// <summary>
     /// Будує снапшот ворожих героїв з поточного GameState.
@@ -42,8 +51,14 @@ public sealed class MinimapPresenceTracker
     {
         if (gs?.Minimap?.Elements is null)
         {
-            var empty = new EnemyPresenceSnapshot(Array.Empty<EnemyDot>());
-            return (empty, empty);
+            // Anti-flicker: повертаємо ОСТАННІ відомі snapshot'и. Enemy — через _lastSeen
+            // (ghost decay сам подбає), ally — через _lastAllies якщо ще свіжий.
+            var heldEnemies = BuildEnemySnapshotFromLastSeen(now);
+            var heldAllies = (_lastAllies is not null &&
+                              (now - _lastAlliesAt).TotalSeconds < AllyHoldSeconds)
+                ? new EnemyPresenceSnapshot(_lastAllies)
+                : new EnemyPresenceSnapshot(Array.Empty<EnemyDot>());
+            return (heldEnemies, heldAllies);
         }
 
         var enemyTeam = myIsRadiant ? PlayerTeam.Dire : PlayerTeam.Radiant;
@@ -80,6 +95,17 @@ public sealed class MinimapPresenceTracker
         }
 
         // 2. Збираємо вороги + чистимо застарілі ghost'и.
+        var enemySnap = BuildEnemySnapshotFromLastSeen(now);
+
+        // 3. Кешуємо ally snapshot для anti-flicker логіки наступних тіків.
+        _lastAllies = allyDots;
+        _lastAlliesAt = now;
+
+        return (enemySnap, new EnemyPresenceSnapshot(allyDots));
+    }
+
+    private EnemyPresenceSnapshot BuildEnemySnapshotFromLastSeen(DateTime now)
+    {
         var enemyDots = new List<EnemyDot>(_lastSeen.Count);
         var toRemove = new List<string>();
         foreach (var (name, info) in _lastSeen)
@@ -93,12 +119,14 @@ public sealed class MinimapPresenceTracker
             enemyDots.Add(new EnemyDot(info.Wx, info.Wy, stale));
         }
         foreach (var n in toRemove) _lastSeen.Remove(n);
-
-        return (
-            new EnemyPresenceSnapshot(enemyDots),
-            new EnemyPresenceSnapshot(allyDots));
+        return new EnemyPresenceSnapshot(enemyDots);
     }
 
     /// <summary>Скидає state (напр. при новому матчі).</summary>
-    public void Reset() => _lastSeen.Clear();
+    public void Reset()
+    {
+        _lastSeen.Clear();
+        _lastAllies = null;
+        _lastAlliesAt = DateTime.MinValue;
+    }
 }

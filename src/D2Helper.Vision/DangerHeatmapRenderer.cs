@@ -70,6 +70,24 @@ public static class DangerHeatmapRenderer
                     // 3 чіткі зони з різкими межами. Жовтий — вузька contested-смуга.
                     var (r, g, b, a) = DangerToBand(danger, alpha);
 
+                    // V1.4.1: vignette по периметру — щоб не було видно квадратних
+                    // границь нашого оверлею на тлі круглуватої мінімапи Dota.
+                    // Внутрішні ~78% радіуса — повна непрозорість, далі плавне згасання.
+                    float nx = (x / (float)(width - 1)) * 2f - 1f;   // [-1..1]
+                    float ny = (y / (float)(height - 1)) * 2f - 1f;
+                    // Квадратна норма (chebyshev): краще збігається з прямокутною мінімапою.
+                    float rEdge = Math.Max(Math.Abs(nx), Math.Abs(ny));
+                    float fade;
+                    if (rEdge <= 0.78f) fade = 1f;
+                    else if (rEdge >= 0.98f) fade = 0f;
+                    else
+                    {
+                        float t = (rEdge - 0.78f) / (0.98f - 0.78f);
+                        // smoothstep: 3t² - 2t³
+                        fade = 1f - t * t * (3f - 2f * t);
+                    }
+                    a = (byte)(a * fade);
+
                     byte* px = row + x * 4;
                     // 32bppArgb у GDI+ записується як BGRA (little-endian).
                     px[0] = b;
