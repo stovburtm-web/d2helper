@@ -76,4 +76,26 @@ public class DangerZoneModelTests
         var d = DangerZoneModel.ComputeDanger(-4000, -3000, PlayerSide.Radiant, gameTime: 60);
         Assert.True(d < 0.38f, $"deep own jungle expected <0.38 (green), got {d:F3}");
     }
+
+    [Fact]
+    public void AbsenceCrush_DoesNotMakeEnemyTerritorySafe()
+    {
+        // V1.5.2 regression guard: absence (всі вороги passive в фонтані → absence≈1
+        // на всій мапі) НЕ має знижувати danger у ворожій зоні. Інакше вся карта зелена
+        // після horn'у на 0:00.
+        // Ворожий T2 mid (~2500,2500) — geometric base сильно червоний.
+        var withAbsence = DangerZoneModel.ComputeDangerDynamic(
+            wx: 2500, wy: 2500, side: PlayerSide.Radiant, gameTime: 60,
+            absenceScore: 1f);
+        Assert.True(withAbsence > 0.60f,
+            $"enemy T2 with absence=1 should still be red (>0.60), got {withAbsence:F3}");
+
+        // А свій jungle при absence=1 — навпаки має знизитись (це фіча, не баг).
+        var ownJungleSafe = DangerZoneModel.ComputeDangerDynamic(
+            wx: -3500, wy: -2500, side: PlayerSide.Radiant, gameTime: 600,
+            absenceScore: 1f);
+        var ownJungleBase = DangerZoneModel.ComputeDanger(-3500, -2500, PlayerSide.Radiant, 600);
+        Assert.True(ownJungleSafe < ownJungleBase,
+            $"own jungle with absence=1 should drop below base ({ownJungleBase:F3}), got {ownJungleSafe:F3}");
+    }
 }

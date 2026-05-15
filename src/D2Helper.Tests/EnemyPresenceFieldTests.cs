@@ -87,19 +87,28 @@ public class EnemyPresenceFieldTests
     }
 
     [Fact]
-    public void DangerDynamic_AbsenceMakesDangerZoneSafer()
+    public void DangerDynamic_AbsenceMakesOwnZoneSafer_NotEnemyZone()
     {
-        // Dire highground — за geometric model danger високий для Radiant.
-        var baseDanger = DangerZoneModel.ComputeDangerDynamic(
-            wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600);
-        Assert.True(baseDanger > 0.7f, $"Dire highground should be dangerous, got {baseDanger}");
+        // V1.5.2: absence-crush діє ТІЛЬКИ у своїй/нейтральній зоні (baseDanger < 0.55).
+        // На ворожому highground абсолютна геометрична небезпека лишається.
 
-        // Якщо absence=1 (всі вороги десь в іншому місці) — має зменшитись помітно.
-        var withAbsence = DangerZoneModel.ComputeDangerDynamic(
+        // Випадок А: своя territory — absence має знизити danger.
+        var ownBase = DangerZoneModel.ComputeDangerDynamic(
+            wx: -3000, wy: -3000, side: PlayerSide.Radiant, gameTime: 600);
+        var ownWithAbsence = DangerZoneModel.ComputeDangerDynamic(
+            wx: -3000, wy: -3000, side: PlayerSide.Radiant, gameTime: 600,
+            absenceScore: 1.0f);
+        Assert.True(ownWithAbsence < ownBase - 0.05f,
+            $"own zone with absence=1 should drop; was {ownBase}, now {ownWithAbsence}");
+
+        // Випадок Б: Dire highground — absence НЕ має робити її безпечною.
+        var enemyBase = DangerZoneModel.ComputeDangerDynamic(
+            wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600);
+        Assert.True(enemyBase > 0.7f, $"Dire highground should be dangerous, got {enemyBase}");
+        var enemyWithAbsence = DangerZoneModel.ComputeDangerDynamic(
             wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600,
             absenceScore: 1.0f);
-        Assert.True(withAbsence < baseDanger - 0.3f,
-            $"absence=1 should drop danger; was {baseDanger}, now {withAbsence}");
+        Assert.Equal(enemyBase, enemyWithAbsence);
     }
 
     [Fact]
