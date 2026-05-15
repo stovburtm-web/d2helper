@@ -69,14 +69,13 @@ public static class DangerZoneModel
     private static float ComputePhaseShift(float gameTime)
     {
         // Шкала зрушень — підібрано емпірично:
-        //   pregame/0..6 хв: -0.03 → 0   (своя half безпечна, АЛЕ річка/підступи лишаються
-        //                                  contested через runes 2:00/4:00 і смок-ганки з мiд'у)
+        //   pregame/0..6 хв: -0.08 (своя сторона ще безпечніша)
         //   6..14 хв        : 0  → +0.05 (T1 контестед, межа на лінії шепарда)
         //   14..25 хв       : +0.05 → +0.15 (T2 контестед, ворог глибше)
         //   25..40 хв       : +0.15 → +0.22 (late, тільки база безпечна)
         //   40+ хв          : 0.22 → 0.28
-        if (gameTime < 360f)   return Lerp(-0.03f,  0.00f, gameTime / 360f);
-        if (gameTime < 840f)   return Lerp( 0.00f,  0.05f, (gameTime - 360f) / 480f);
+        if (gameTime < 360f)   return Lerp(-0.10f, -0.05f, gameTime / 360f);
+        if (gameTime < 840f)   return Lerp(-0.05f,  0.05f, (gameTime - 360f) / 480f);
         if (gameTime < 1500f)  return Lerp( 0.05f,  0.15f, (gameTime - 840f) / 660f);
         if (gameTime < 2400f)  return Lerp( 0.15f,  0.22f, (gameTime - 1500f) / 900f);
         return 0.28f;
