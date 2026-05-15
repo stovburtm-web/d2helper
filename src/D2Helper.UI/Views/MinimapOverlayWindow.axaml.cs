@@ -16,7 +16,9 @@ public partial class MinimapOverlayWindow : Window
 {
     private DispatcherTimer? _hotkeyTimer;
     private bool _prevHotkeyDown;
-    private bool _isVisible = true;
+    // За замовчуванням debug-widget прихований (App.axaml.cs виставляє Opacity=0).
+    // Alt+F10 toggle → перший прес показує його (Opacity=1).
+    private bool _isVisible = false;
 
     public MinimapOverlayWindow()
     {
@@ -25,6 +27,9 @@ public partial class MinimapOverlayWindow : Window
         {
             PositionInitial();
             ApplyToolWindowStyle();
+            // Стартуємо в click-through режимі — debug-widget схований і не повинен
+            // блокувати кліки на ігрову мінімапу (під ним лежить heatmap-вікно).
+            SetClickThrough(true);
             StartHotkeyWatcher();
         };
         Closed += (_, _) => _hotkeyTimer?.Stop();
@@ -56,6 +61,8 @@ public partial class MinimapOverlayWindow : Window
     private const int GWL_EXSTYLE = -20;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
+    private const uint WS_EX_TRANSPARENT = 0x00000020;
+    private const uint WS_EX_LAYERED = 0x00080000;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
@@ -74,6 +81,26 @@ public partial class MinimapOverlayWindow : Window
         if (handle == IntPtr.Zero) return;
         var ex = GetWindowLong(handle, GWL_EXSTYLE);
         ex |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+        SetWindowLong(handle, GWL_EXSTYLE, ex);
+    }
+
+    /// <summary>
+    /// Перемикає WS_EX_TRANSPARENT / WS_EX_LAYERED на debug-widget вікні.
+    /// Коли воно сховане (Opacity=0) — має пропускати кліки на ігрову мінімапу
+    /// (інакше блокує click-through нашого heatmap-вікна що знаходиться під ним).
+    /// Коли користувач показав його через Alt+F10 — знімаємо click-through, щоб
+    /// він міг тягти/калібрувати.
+    /// </summary>
+    private void SetClickThrough(bool enable)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (handle == IntPtr.Zero) return;
+        var ex = GetWindowLong(handle, GWL_EXSTYLE);
+        if (enable)
+            ex |= WS_EX_TRANSPARENT | WS_EX_LAYERED;
+        else
+            ex &= ~(WS_EX_TRANSPARENT | WS_EX_LAYERED);
         SetWindowLong(handle, GWL_EXSTYLE, ex);
     }
 
@@ -97,5 +124,8 @@ public partial class MinimapOverlayWindow : Window
     {
         _isVisible = !_isVisible;
         Opacity = _isVisible ? 1.0 : 0.0;
+        // Видимий → можна тягти/калібрувати, знімаємо click-through.
+        // Невидимий → click-through, інакше блокує кліки на ігрову мінімапу.
+        SetClickThrough(!_isVisible);
     }
 }

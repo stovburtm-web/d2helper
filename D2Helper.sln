@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7F42F55F-F5A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D2Helper.Vision", "src\D2Helper.Vision\D2Helper.Vision.csproj", "{1B4F089E-1159-4AA0-BD6C-65EC54BB4259}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D2Helper.Knowledge.Cli", "src\D2Helper.Knowledge.Cli\D2Helper.Knowledge.Cli.csproj", "{6BB6B6E6-0678-45F5-8CA5-77EDD4DDD286}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,8 +40,13 @@ Global
 		{1B4F089E-1159-4AA0-BD6C-65EC54BB4259}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B4F089E-1159-4AA0-BD6C-65EC54BB4259}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1B4F089E-1159-4AA0-BD6C-65EC54BB4259}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BB6B6E6-0678-45F5-8CA5-77EDD4DDD286}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BB6B6E6-0678-45F5-8CA5-77EDD4DDD286}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BB6B6E6-0678-45F5-8CA5-77EDD4DDD286}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BB6B6E6-0678-45F5-8CA5-77EDD4DDD286}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1B4F089E-1159-4AA0-BD6C-65EC54BB4259} = {7F42F55F-F5AE-4496-B94D-07928238E354}
+		{6BB6B6E6-0678-45F5-8CA5-77EDD4DDD286} = {7F42F55F-F5AE-4496-B94D-07928238E354}
 	EndGlobalSection
 EndGlobal

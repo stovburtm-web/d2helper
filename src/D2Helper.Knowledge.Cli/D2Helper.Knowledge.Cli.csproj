@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>D2Helper.Knowledge.Cli</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\D2Helper.Data\D2Helper.Data.csproj" />
+    <ProjectReference Include="..\D2Helper.Vision\D2Helper.Vision.csproj" />
+  </ItemGroup>
+</Project>

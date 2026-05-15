@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="D2Helper.UI.Views.DangerHeatmapWindow"
+        Title="D2Helper Danger Overlay"
+        SystemDecorations="None"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        Topmost="True"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Focusable="False">
+
+  <!-- Маленьке вікно розміру самої мінімапи Dota. Як Quests OverlayWindow:
+       Position і Size ставляться ОДИН раз і більше не змінюються — це єдиний
+       спосіб зберегти WS_EX_TRANSPARENT від async-скидання Avalonia. -->
+  <Image x:Name="HeatmapImage" Stretch="Fill"/>
+</Window>

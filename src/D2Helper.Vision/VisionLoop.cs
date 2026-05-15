@@ -83,10 +83,12 @@ public sealed class VisionLoop : IDisposable
         if (profile is null)
         {
             // Гра є але користувач ще не калібрував — генеруємо дефолт для поточного розміру
-            // вікна Dota і чекаємо, поки UI замінить його через SetProfile().
+            // вікна Dota і запам'ятовуємо як активний профіль, щоб UI (heatmap, debug widget)
+            // міг його відразу читати. Користувач замінить через SetProfile() з калібрування.
             var client = DotaWindowLocator.GetClientRect();
             if (client is null) return;
             profile = CalibrationProfile.Default(client.Value.Width, client.Value.Height);
+            Profile = profile;
         }
 
         var roiRect = new Rectangle(profile.Left, profile.Top, profile.Width, profile.Height);

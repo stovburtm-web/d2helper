@@ -17,5 +17,11 @@ secrets/
 appsettings.Local.json
 appsettings.Development.json
 
+# Local data dumps (raw replays, datasets) — too large for git
+data/stratz-matches/
+data/training-set*.csv
+data/training-set*.parquet
+data/local-states.db
+data/smoke.bin
 
 test-out.txt

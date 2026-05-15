@@ -153,6 +153,40 @@ public sealed class OpenDotaClient
         0 => "Public", 7 => "Ranked", _ => $"Lobby {id}",
     };
 
+    // ====================================================================
+    // === Knowledge-base збір (V1.2): parsed-match deaths heatmap ========
+    // ====================================================================
+
+    /// <summary>
+    /// Виконує SQL-запит проти OpenDota Data Explorer endpoint
+    /// (<c>/api/explorer?sql=...</c>). Повертає JSON масив рядків з полем <c>rows</c>.
+    /// Корисно щоб витягати матч-IDs з фільтрами по MMR / cluster / parsed-status.
+    /// </summary>
+    public async Task<JsonDocument> ExplorerSqlAsync(string sql, CancellationToken ct = default)
+    {
+        var path = $"explorer?sql={Uri.EscapeDataString(sql)}";
+        using var resp = await GetWithRetryAsync(path, ct).ConfigureAwait(false);
+        var raw = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+        {
+            // Explorer повертає 400 з тілом {err:"..."} — піднімаємо помилку з тілом.
+            throw new HttpRequestException($"OpenDota Explorer {(int)resp.StatusCode}: {raw}");
+        }
+        return JsonDocument.Parse(raw);
+    }
+
+    /// <summary>
+    /// Витягає parsed-match JSON. Має сенс тільки якщо <c>match.version</c> != null,
+    /// тоді у відповіді є <c>teamfights[].players[].deaths_pos</c> з координатами смертей.
+    /// </summary>
+    public async Task<JsonDocument?> GetMatchAsync(long matchId, CancellationToken ct = default)
+    {
+        using var resp = await GetWithRetryAsync($"matches/{matchId}", ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode) return null;
+        var raw = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return JsonDocument.Parse(raw);
+    }
+
     private sealed class WinLossDto
     {
         [JsonPropertyName("win")] public int Win { get; set; }
