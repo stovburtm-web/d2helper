@@ -14,6 +14,26 @@
 
   <!-- Маленьке вікно розміру самої мінімапи Dota. Як Quests OverlayWindow:
        Position і Size ставляться ОДИН раз і більше не змінюються — це єдиний
-       спосіб зберегти WS_EX_TRANSPARENT від async-скидання Avalonia. -->
-  <Image x:Name="HeatmapImage" Stretch="Fill"/>
+       спосіб зберегти WS_EX_TRANSPARENT від async-скидання Avalonia.
+
+       V1.7.3: два накладені Image для плавного crossfade'у між кадрами heatmap.
+       При новому рендері пишемо у «back», піднімаємо його Opacity 0→1 з 600ms
+       transition, а старий «front» опускаємо 1→0. Виглядає як плавний морфінг
+       замість стрибкоподібної заміни. -->
+  <Grid>
+    <Image x:Name="HeatmapImageA" Stretch="Fill" Opacity="1">
+      <Image.Transitions>
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.6"/>
+        </Transitions>
+      </Image.Transitions>
+    </Image>
+    <Image x:Name="HeatmapImageB" Stretch="Fill" Opacity="0">
+      <Image.Transitions>
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.6"/>
+        </Transitions>
+      </Image.Transitions>
+    </Image>
+  </Grid>
 </Window>

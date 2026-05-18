@@ -55,7 +55,9 @@ public partial class DangerHeatmapWindow : Window
     private bool _renderedRotated;
     private bool _dynamicDirty = true;
 
-    private Image? _heatmapImage;
+    private Image? _heatmapA;
+    private Image? _heatmapB;
+    private bool _useB; // в який буфер писати наступний кадр (false=A, true=B)
     private Canvas? _root;
     private bool _windowPlaced;
     private int _placedDotaLeft, _placedDotaTop, _placedW, _placedH;
@@ -65,7 +67,8 @@ public partial class DangerHeatmapWindow : Window
         _vision = vision;
         _gsi = gsi;
         InitializeComponent();
-        _heatmapImage = this.FindControl<Image>("HeatmapImage");
+        _heatmapA = this.FindControl<Image>("HeatmapImageA");
+        _heatmapB = this.FindControl<Image>("HeatmapImageB");
         _root = this.FindControl<Canvas>("Root");
 
         Opened += (_, _) =>
@@ -406,12 +409,19 @@ public partial class DangerHeatmapWindow : Window
             dbmp.Save(ms, DImageFormat.Png);
             ms.Position = 0;
             var avaBmp = new Bitmap(ms);
-            if (_heatmapImage is not null)
+            // V1.7.3: crossfade між двома Image. Новий кадр є до «back», котрий плавно виходить
+            // 0→1 по Opacity (DoubleTransition 600ms), старий «front» ховається 1→0. Свопаємо ролі.
+            var target = _useB ? _heatmapB : _heatmapA;
+            var other = _useB ? _heatmapA : _heatmapB;
+            if (target is not null)
             {
-                var old = _heatmapImage.Source as Bitmap;
-                _heatmapImage.Source = avaBmp;
+                var old = target.Source as Bitmap;
+                target.Source = avaBmp;
+                target.Opacity = 1.0;
                 old?.Dispose();
             }
+            if (other is not null) other.Opacity = 0.0;
+            _useB = !_useB;
             _renderedW = w;
             _renderedH = h;
             _renderedSide = _side;
