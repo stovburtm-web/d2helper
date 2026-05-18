@@ -31,8 +31,10 @@ public static class TowerMap
         _ => 1.0f,
     };
 
-    /// <summary>Радіус aura в world-units (σ гауса). На r=σ внесок ~37% від центрального.</summary>
-    public const float AuraSigma = 1100f;
+    /// <summary>Радіус aura в world-units (σ гауса). На r=σ внесок ~37% від центрального.
+    /// V1.7.1: збільшено з 1100 до 2000 — щоб сусідні вежі на лайні (~3500 unit apart) формували
+    /// суцільне поле, а не точкові «острівці». Інакше absence-crush крушив зони між вежами в зелене.</summary>
+    public const float AuraSigma = 2000f;
 
     /// <summary>Координати веж Radiant (нижній-лівий кут мапи).</summary>
     public static readonly IReadOnlyDictionary<TowerKey, (float X, float Y)> Radiant =

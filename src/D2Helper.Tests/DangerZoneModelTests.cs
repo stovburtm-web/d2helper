@@ -157,15 +157,17 @@ public class DangerZoneModelTests
     [Fact]
     public void V17_DeadEnemyTower_GivesNoAura_AllowsAbsenceCrush()
     {
-        // Та сама точка — Dire T1 bot — але вежа знищена. Тоді tower aura ≈ 0
-        // (інші вежі далеко), і absence-crush повертає зону до floor (~0.41).
+        // V1.7.1: σ=2000, тому одна жива сусідня вежа (T2bot за ~2200 unit) ще тягне aura.
+        // Реалістичний сценарій "deep push можливий" — це коли впали і T1, і T2 на лайні.
+        // Лише тоді absence-crush має право розфарбувати зону в зелене.
         var towers = D2Helper.Core.Models.TowerSnapshot.AllAlive()
-            .WithDestroyed(D2Helper.Core.Models.TowerTeam.Dire, D2Helper.Core.Models.TowerKey.T1Bot);
+            .WithDestroyed(D2Helper.Core.Models.TowerTeam.Dire, D2Helper.Core.Models.TowerKey.T1Bot)
+            .WithDestroyed(D2Helper.Core.Models.TowerTeam.Dire, D2Helper.Core.Models.TowerKey.T2Bot);
         var (tx, ty) = D2Helper.Core.Models.TowerMap.Dire[D2Helper.Core.Models.TowerKey.T1Bot];
         float aura = towers.SampleAura(tx, ty, playerIsRadiant: true);
 
-        // Інші вежі далеко (Т2 bot Dire +1500, Т2 mid Dire +кілька тис) → aura < 0.4.
-        Assert.True(aura < 0.4f, $"dead T1 bot should have weak residual aura, got {aura:F3}");
+        // Інші вежі (T3bot Dire, T1mid Dire) далеко >4500 unit → aura ≈ 0.
+        Assert.True(aura < 0.2f, $"T1+T2 bot dead → near-zero aura, got {aura:F3}");
 
         var result = DangerZoneModel.ComputeDangerDynamic(
             wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 1f,

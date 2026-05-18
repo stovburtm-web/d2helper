@@ -132,7 +132,7 @@ public static class DangerZoneModel
         float friendlyControl = float.NaN,
         float friendlyControlWeight = 0.50f,
         float towerAuraLocal = float.NaN,
-        float towerAuraWeight = 0.30f)
+        float towerAuraWeight = 0.50f)
     {
         float baseDanger = ComputeDanger(wx, wy, side, gameTime);
         float danger = baseDanger;
