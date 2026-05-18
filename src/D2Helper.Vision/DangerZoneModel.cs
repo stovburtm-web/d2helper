@@ -126,7 +126,7 @@ public static class DangerZoneModel
         float empiricalDensity = float.NaN,
         float empiricalWeight = 0.35f,
         float presenceLocal = float.NaN,
-        float presenceWeight = 0.60f,
+        float presenceWeight = 0.85f,
         float absenceScore = float.NaN,
         float absenceWeight = 0.75f,
         float friendlyControl = float.NaN,
@@ -241,7 +241,7 @@ public static class DangerZoneModel
             }
             else
             {
-                bool enemyNearby = !float.IsNaN(presenceLocal) && presenceLocal >= 0.3f;
+                bool enemyNearby = !float.IsNaN(presenceLocal) && presenceLocal >= 0.2f;
                 bool enemyHalf = baseDanger >= 0.55f;
                 if (!enemyNearby && !enemyHalf)
                 {

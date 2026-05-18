@@ -165,11 +165,12 @@ public class EnemyPresenceFieldTests
     [Fact]
     public void DangerDynamic_EnemyVsFriendly_BothApplied()
     {
-        // Ворог поряд (+0.6 nudge) + 2+ союзники поряд (fc=2.0, ефект -0.5) → майже нейтрально.
+        // Ворог поряд (presence nudge) + 2+ союзники поряд (fc=2.0) → союзники помітно знижують.
+        // Беремо presence=0.5 щоб не саатурувати в 1.0 (з V1.7.5 presenceWeight=0.85).
         float withBoth = DangerZoneModel.ComputeDangerDynamic(0, 0, PlayerSide.Radiant, 600,
-            presenceLocal: 1.0f, friendlyControl: 2.0f);
+            presenceLocal: 0.5f, friendlyControl: 2.0f);
         float onlyEnemy = DangerZoneModel.ComputeDangerDynamic(0, 0, PlayerSide.Radiant, 600,
-            presenceLocal: 1.0f);
+            presenceLocal: 0.5f);
         Assert.True(withBoth < onlyEnemy - 0.3f,
             $"allies should reduce danger when contested; only={onlyEnemy} both={withBoth}");
     }
