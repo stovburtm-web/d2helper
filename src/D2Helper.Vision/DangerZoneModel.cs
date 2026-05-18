@@ -229,9 +229,25 @@ public static class DangerZoneModel
         // - Поряд жива своя вежа → -danger (safety, відступ).
         // Мертві вежі не дають внеску → коли впаде ворожий Т1, та зона природно стає
         // прохідною для пуша, не потребуючи штучних gate'ів за gameTime.
+        //
+        // V1.7.4: friendly aura (negative) НЕ застосовується якщо ворожі герої видимі поряд
+        // (presenceLocal ≥ 0.3) АБО точка вже у ворожій зоні (base ≥ 0.55). Бо «стояти під своєю
+        // вежею» ≠ безпека, коли там фізично стоять вороги. Ворожа aura (positive) додається завжди.
         if (!float.IsNaN(towerAuraLocal) && towerAuraLocal != 0f)
         {
-            danger += towerAuraLocal * towerAuraWeight;
+            if (towerAuraLocal > 0f)
+            {
+                danger += towerAuraLocal * towerAuraWeight;
+            }
+            else
+            {
+                bool enemyNearby = !float.IsNaN(presenceLocal) && presenceLocal >= 0.3f;
+                bool enemyHalf = baseDanger >= 0.55f;
+                if (!enemyNearby && !enemyHalf)
+                {
+                    danger += towerAuraLocal * towerAuraWeight; // negative → reduce
+                }
+            }
         }
 
         if (danger < 0f) danger = 0f;

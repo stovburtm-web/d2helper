@@ -193,4 +193,25 @@ public class DangerZoneModelTests
         Assert.True(withTower < withoutTower,
             $"friendly tower aura should reduce danger: with={withTower:F3} vs without={withoutTower:F3}");
     }
+
+    [Fact]
+    public void V174_FriendlyTowerAura_BlockedByVisibleEnemyPresence()
+    {
+        // V1.7.4: якщо біля своєї вежі стоять ВОРОЖІ герої (видимі на minimap), friendly aura
+        // НЕ повинна робити цю точку зеленою. "Я під своєю Т1, але на лайні 2 ворожих кері" — це
+        // не safety, це готовий gank. presenceLocal=1.0 (один ворог точно тут) → friendly aura off.
+        var towers = D2Helper.Core.Models.TowerSnapshot.AllAlive();
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Radiant[D2Helper.Core.Models.TowerKey.T1Bot];
+        float aura = towers.SampleAura(tx, ty, playerIsRadiant: true);
+
+        var withoutEnemies = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f,
+            towerAuraLocal: aura);
+        var withEnemies = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f,
+            presenceLocal: 1.0f,
+            towerAuraLocal: aura);
+        Assert.True(withEnemies > withoutEnemies + 0.05f,
+            $"visible enemy hero must block friendly tower aura: with={withEnemies:F3} vs without={withoutEnemies:F3}");
+    }
 }
