@@ -144,9 +144,21 @@ public static class DangerZoneModel
         float enemyCreepHint = float.NaN,
         float enemyCreepHintWeight = 0.12f,
         float enemyCreepBeyond = float.NaN,
-        float enemyCreepBeyondWeight = 0.20f)
+        float enemyCreepBeyondWeight = 0.20f,
+        float enemyTowerCoverage = float.NaN)
     {
         float baseDanger = ComputeDanger(wx, wy, side, gameTime);
+        // V1.8.2: tower-coverage multiplier. Якщо поряд немає жодної живої ворожої вежі,
+        // геометричний baseDanger ё фіктивним «це ж ворожа сторона» — реальної структурної
+        // загрози там немає. Примножуємо baseDanger на множник 0.3..1.0 — мега-крипс ситуація
+        // різко зеленіє там, де вежі вже впали. NaN = пропуск (бек-компат для тестів).
+        if (!float.IsNaN(enemyTowerCoverage))
+        {
+            float cov = enemyTowerCoverage;
+            if (cov < 0.3f) cov = 0.3f;
+            if (cov > 1f) cov = 1f;
+            baseDanger *= cov;
+        }
         float danger = baseDanger;
 
         // Fog modifier — асиметричний:

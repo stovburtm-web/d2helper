@@ -305,4 +305,41 @@ public class DangerZoneModelTests
         Assert.Equal(0f, behind);
         Assert.True(sideOff < ahead * 0.5f, $"lateral-off must be weaker: ahead={ahead:F3}, sideOff={sideOff:F3}");
     }
+
+    [Fact]
+    public void V182_TowerCoverage_NoLiveEnemyTowers_DampensBaseDanger()
+    {
+        // Мега-крипс ситуація: усі ворожі вежі мертві. Точка глибоко на ворожій половині
+        // (T2-mid Dire) має різко позеленіти — структурної загрози немає.
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Dire[D2Helper.Core.Models.TowerKey.T2Mid];
+
+        var withFullCoverage = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 2400f,
+            enemyTowerCoverage: 1.0f);
+        var noCoverage = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 2400f,
+            enemyTowerCoverage: 0.3f);
+        Assert.True(noCoverage < withFullCoverage - 0.10f,
+            $"no live enemy towers must reduce danger: nocov={noCoverage:F3} vs full={withFullCoverage:F3}");
+    }
+
+    [Fact]
+    public void V182_TowerCoverage_Sample_FullNearLiveTower_FloorWithoutAny()
+    {
+        // SampleEnemyTowerCoverage: біля живої ворожої T1 — 1.0; коли всі вежі знесені — floor 0.3.
+        var towers = D2Helper.Core.Models.TowerSnapshot.AllAlive();
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Dire[D2Helper.Core.Models.TowerKey.T1Top];
+        float near = towers.SampleEnemyTowerCoverage(tx, ty, playerIsRadiant: true);
+        Assert.Equal(1f, near);
+
+        // Знесемо всі Dire-вежі та ancient → coverage у тій же точці впав до floor.
+        var dead = towers;
+        foreach (var key in System.Enum.GetValues<D2Helper.Core.Models.TowerKey>())
+        {
+            if (dead.IsAlive(D2Helper.Core.Models.TowerTeam.Dire, key))
+                dead = dead.WithDestroyed(D2Helper.Core.Models.TowerTeam.Dire, key);
+        }
+        float far = dead.SampleEnemyTowerCoverage(tx, ty, playerIsRadiant: true);
+        Assert.Equal(0.3f, far);
+    }
 }

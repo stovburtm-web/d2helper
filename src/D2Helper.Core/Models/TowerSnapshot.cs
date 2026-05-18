@@ -74,4 +74,39 @@ public sealed class TowerSnapshot
         if (signed < -1.5f) signed = -1.5f;
         return signed;
     }
+
+    /// <summary>
+    /// V1.8.2: structural «tower coverage» — наскільки геометричний baseDanger підкріплений
+    /// реально живими ворожими будівлями поряд. Якщо їх нема — модельний червоний на ворожій
+    /// половині є фіктивним (нема ким загрожувати з структур, лишається тільки реальна
+    /// presence героїв, ancient/fountain, та creep trail).
+    ///
+    /// Повертає множник у [0.3..1.0]:
+    ///   - 1.0  — є жива ворожа вежа в радіусі ≤ <paramref name="fullRadius"/> (2500).
+    ///   - 0.3  — ближча жива ворожа вежа далі ніж <paramref name="fadeRadius"/> (6000), або веж взагалі нема.
+    ///   - між  — лінійна інтерполяція.
+    /// Нижня межа 0.3 (не 0) бо ancient/fountain все одно небезпечні навіть без T1..T3.
+    /// </summary>
+    public float SampleEnemyTowerCoverage(float wx, float wy, bool playerIsRadiant,
+        float fullRadius = 2500f, float fadeRadius = 6000f, float floor = 0.3f)
+    {
+        var enemyTeam = playerIsRadiant ? TowerTeam.Dire : TowerTeam.Radiant;
+        float bestR2 = float.PositiveInfinity;
+        foreach (var (team, key) in TowerMap.All())
+        {
+            if (team != enemyTeam) continue;
+            if (!IsAlive(team, key)) continue;
+            var (tx, ty) = TowerMap.GetPosition(team, key);
+            float dx = wx - tx;
+            float dy = wy - ty;
+            float r2 = dx * dx + dy * dy;
+            if (r2 < bestR2) bestR2 = r2;
+        }
+        if (float.IsPositiveInfinity(bestR2)) return floor;
+        float r = (float)Math.Sqrt(bestR2);
+        if (r <= fullRadius) return 1f;
+        if (r >= fadeRadius) return floor;
+        float t = (r - fullRadius) / (fadeRadius - fullRadius);
+        return 1f - t * (1f - floor);
+    }
 }
