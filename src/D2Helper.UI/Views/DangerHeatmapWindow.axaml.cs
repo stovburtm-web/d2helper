@@ -61,6 +61,14 @@ public partial class DangerHeatmapWindow : Window
     // RawSourceWaveStream+WaveOutEvent, щоб concurrent ping'и не глушили один одного.
     // Фолбек: Win32 MessageBeep.
     private byte[]? _pingPcmBytes;
+    // V1.6.1 (audit fix): трекаємо активні NAudio плеєри, щоб гарантовано закрити
+    // їх при Closed (інакше якщо PlaybackStopped не встиг фаярнути — handle тече).
+    private readonly object _activePlayersLock = new();
+    private readonly HashSet<NAudio.Wave.WaveOutEvent> _activePlayers = new();
+    // V1.6.1 (audit fix): MatchID нового матчу → скидаємо per-match state
+    // (_towerDestroyCount, _lastPulseByPlayer, _towers, _sideLocked). Інакше з 2-го матчу
+    // вежі будуть рахуватись від 4-ї + старі hero-cooldown'и блокують перші пульси.
+    private long _lastMatchId;
     // V1.7: tower snapshot — для початку всі живі, поновлюється при TowerDestroyed.
     // Простий лічильник на стороно/лайн дає нам tier (1-й destroy на TopLane Dire = T1Top тощо).
     private TowerSnapshot _towers = TowerSnapshot.AllAlive();
@@ -122,6 +130,18 @@ public partial class DangerHeatmapWindow : Window
             _frameSub?.Dispose();
             _deathSub?.Dispose();
             _towerSub?.Dispose();
+            // V1.6.1 (audit fix): зачинити всі ще-граючі NAudio плеєри.
+            NAudio.Wave.WaveOutEvent[] toDispose;
+            lock (_activePlayersLock)
+            {
+                toDispose = _activePlayers.ToArray();
+                _activePlayers.Clear();
+            }
+            foreach (var p in toDispose)
+            {
+                try { p.Stop(); } catch { }
+                try { p.Dispose(); } catch { }
+            }
         };
     }
 
@@ -234,6 +254,22 @@ public partial class DangerHeatmapWindow : Window
     {
         try
         {
+            // V1.6.1 (audit fix): на новий MatchID — скидаємо весь per-match state.
+            var mid = gs.Map?.MatchID ?? 0;
+            if (mid > 0 && mid != _lastMatchId)
+            {
+                if (_lastMatchId != 0)
+                {
+                    Console.WriteLine($"[HEATMAP] Match changed {_lastMatchId} -> {mid}; resetting per-match state.");
+                    _towerDestroyCount.Clear();
+                    _lastPulseByPlayer.Clear();
+                    _towers = TowerSnapshot.AllAlive();
+                    _sideLocked = false;
+                    _dynamicDirty = true;
+                }
+                _lastMatchId = mid;
+            }
+
             // gameTime в секундах.
             _gameTime = gs.Map?.GameTime ?? 0;
 
@@ -592,17 +628,26 @@ public partial class DangerHeatmapWindow : Window
     {
         if (_pingPcmBytes is not null)
         {
+            MemoryStream? ms = null;
+            NAudio.Wave.RawSourceWaveStream? reader = null;
+            NAudio.Wave.WaveOutEvent? output = null;
             try
             {
-                var ms = new MemoryStream(_pingPcmBytes);
+                ms = new MemoryStream(_pingPcmBytes);
                 var fmt = new NAudio.Wave.WaveFormat(44100, 16, 1);
-                var reader = new NAudio.Wave.RawSourceWaveStream(ms, fmt);
-                var output = new NAudio.Wave.WaveOutEvent { Volume = 0.55f }; // 55% — чути поверх Dota, не б'є по вухах
+                reader = new NAudio.Wave.RawSourceWaveStream(ms, fmt);
+                output = new NAudio.Wave.WaveOutEvent { Volume = 0.55f }; // 55% — чути поверх Dota, не б'є по вухах
+                // V1.6.1 (audit fix): трекаємо в _activePlayers, щоб Close() міг зачинити.
+                lock (_activePlayersLock) _activePlayers.Add(output);
+                var msLocal = ms;
+                var readerLocal = reader;
+                var outputLocal = output;
                 output.PlaybackStopped += (_, _) =>
                 {
-                    try { output.Dispose(); } catch { }
-                    try { reader.Dispose(); } catch { }
-                    try { ms.Dispose(); } catch { }
+                    lock (_activePlayersLock) _activePlayers.Remove(outputLocal);
+                    try { outputLocal.Dispose(); } catch { }
+                    try { readerLocal.Dispose(); } catch { }
+                    try { msLocal.Dispose(); } catch { }
                 };
                 output.Init(reader);
                 output.Play();
@@ -611,6 +656,15 @@ public partial class DangerHeatmapWindow : Window
             catch (Exception ex)
             {
                 Console.WriteLine($"[HEATMAP] NAudio play failed: {ex.Message}");
+                // V1.6.1 (audit fix): cleanup на випадок коли Init/Play кинули
+                // ДО того як PlaybackStopped зміг зафаярити.
+                if (output is not null)
+                {
+                    lock (_activePlayersLock) _activePlayers.Remove(output);
+                    try { output.Dispose(); } catch { }
+                }
+                try { reader?.Dispose(); } catch { }
+                try { ms?.Dispose(); } catch { }
             }
         }
         try { MessageBeep(MB_ICONHAND); } catch { /* no audio device */ }

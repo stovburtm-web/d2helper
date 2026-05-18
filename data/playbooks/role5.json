@@ -1,0 +1,125 @@
+{
+  "id": "role5",
+  "title": "Role 5 (Hard Support) — V1",
+  "_doc": "Playbook для P5 hard support. V1 містить ЛИШЕ ті квести які engine реально вміє чекати через існуючі QuestType (HasItem / WardsPlaced / LastHits+Denies / LevelReach / PickRune / WisdomRune). Решта з role5.draft.md (lotus_picked, tormentor_killed, react_low_hp, position-by-side, dewards counter) чекає на нові QuestType — див. TODO в кінці файлу.",
+
+  "quests": [
+    {
+      "id": "q-pre-sentry",
+      "title": "Купи sentry в стартовий бай",
+      "type": "HasItem",
+      "target": 1,
+      "itemId": "item_ward_sentry",
+      "fireAtClock": -90,
+      "dueAtClock": -10
+    },
+    {
+      "id": "q-pre-obs",
+      "title": "Купи observer в стартовий бай",
+      "type": "HasItem",
+      "target": 1,
+      "itemId": "item_ward_observer",
+      "fireAtClock": -90,
+      "dueAtClock": -10
+    },
+    {
+      "id": "q-tp-1min",
+      "title": "Май TP-скрол після 1:00",
+      "type": "HasItem",
+      "target": 1,
+      "itemId": "item_tpscroll",
+      "fireAtClock": 60,
+      "dueAtClock": 240
+    },
+    {
+      "id": "q-lhd-5min",
+      "title": "10 last-hit + deny до 5:00",
+      "type": "LastHitsPlusDenies",
+      "target": 10,
+      "targetMin": 6,
+      "targetIdeal": 16,
+      "fireAtClock": 0,
+      "dueAtClock": 300
+    },
+    {
+      "id": "q-wisdom-7",
+      "title": "Забери wisdom rune на 7:00",
+      "type": "WisdomRune",
+      "target": 1,
+      "fireAtClock": 390,
+      "dueAtClock": 460
+    },
+    {
+      "id": "q-rotate-5min-deward",
+      "title": "Постав 1 сентрі/обзерв 5:00–6:30 (dewards window)",
+      "type": "WardsPlaced",
+      "target": 1,
+      "fireAtClock": 300,
+      "dueAtClock": 390
+    },
+    {
+      "id": "q-lvl6-7min",
+      "title": "Дотягни до 6 рівня",
+      "type": "LevelReach",
+      "target": 6,
+      "fireAtClock": 360,
+      "dueAtClock": 540
+    },
+    {
+      "id": "q-wisdom-14",
+      "title": "Забери wisdom rune на 14:00",
+      "type": "WisdomRune",
+      "target": 1,
+      "fireAtClock": 810,
+      "dueAtClock": 880
+    },
+    {
+      "id": "q-bounty-2",
+      "title": "1 bounty / power rune до 4:00 (gold-bump ≥ 40)",
+      "type": "PickRune",
+      "target": 1,
+      "goldJumpThreshold": 40,
+      "fireAtClock": 220,
+      "dueAtClock": 260
+    },
+    {
+      "id": "q-wards-2-12min",
+      "title": "Постав ≥3 варди до 12:00",
+      "type": "WardsPlaced",
+      "target": 3,
+      "targetMin": 2,
+      "targetIdeal": 5,
+      "fireAtClock": 0,
+      "dueAtClock": 720
+    },
+    {
+      "id": "q-gem-25min",
+      "title": "Купи Gem of True Sight на 20–30 хв (варди скінчуються)",
+      "type": "HasItem",
+      "target": 1,
+      "itemId": "item_gem",
+      "fireAtClock": 1200,
+      "dueAtClock": 1800
+    },
+    {
+      "id": "q-wisdom-21",
+      "title": "Забери wisdom rune на 21:00",
+      "type": "WisdomRune",
+      "target": 1,
+      "fireAtClock": 1230,
+      "dueAtClock": 1300
+    }
+  ],
+
+  "_todo_v2": [
+    "pre_block_camp — PositionInZone(enemy_pull_camp_T1) з side-awareness (Radiant/Dire).",
+    "пулл_2_15 — PositionInZone(own_safe_small_camp) + side-awareness.",
+    "rotation_6_8 — PositionInZone(enemy_mid_t2_radius) + side-awareness.",
+    "lotus_3_00 — потрібен новий QuestType LotusPicked (diff Items або buff event).",
+    "tormentor_window — новий QuestType TormentorKilled (GSI event або aegis-buff).",
+    "smoke_gank — новий QuestType SmokeUsedNearAllies.",
+    "react_low_hp_retreat / react_no_buyback — reactive (event-based, не таймінг) → окрема гілка движка.",
+    "qol_courier_used — потребує courier ownership state з GSI.",
+    "dewards count окремо від WardsPlaced — GSI поки не дає лічильник убитих вардів."
+  ]
+}

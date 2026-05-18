@@ -35,10 +35,11 @@ public partial class App : Application
             var vm = new MainWindowViewModel();
             desktop.MainWindow = new MainWindow { DataContext = vm };
 
-            // V1.5.1: вимкнули quest-overlay за запитом юзера (фокус на heatmap'і).
-            // Щоб повернути — розкоментувати нижче + підписку на InGame.
-            // var overlay = new OverlayWindow { DataContext = vm };
-            // overlay.Show();
+            // V1.6: повертаємо quest-overlay поверх Dota (top-right, click-through, Alt+F7 toggle).
+            // Тримає ≤3 активних квестів з role5 playbook. Відповідає north star:
+            // "гейміфікувати базові муви як real-time нагадування".
+            var questOverlay = new OverlayWindow { DataContext = vm };
+            questOverlay.Show();
 
             // Vision (Phase V1.1): danger-heatmap поверх ігрової мінімапи + опційний debug-widget.
             DangerHeatmapWindow? heatmapWin = null;
@@ -71,6 +72,7 @@ public partial class App : Application
                 .Subscribe(inGame => Dispatcher.UIThread.Post(() =>
                 {
                     if (heatmapWin is not null) heatmapWin.Opacity = inGame ? 1.0 : 0.0;
+                    questOverlay.Opacity = inGame ? 1.0 : 0.0;
                 }));
         }
         base.OnFrameworkInitializationCompleted();

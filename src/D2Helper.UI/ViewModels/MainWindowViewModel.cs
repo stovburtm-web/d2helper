@@ -19,6 +19,21 @@ namespace D2Helper.UI.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
+    // V1.6.1 (audit fix): один спільний SocketsHttpHandler на весь застосунок —
+    // елімінує socket-handle leak / DNS-pinning. HttpClient'и далі окремі,
+    // бо OpenDota/Stratz/Steam мутують різні BaseAddress + DefaultRequestHeaders
+    // (їх не можна шарити). disposeHandler:false — handler живе скільки й процес.
+    private static readonly SocketsHttpHandler s_sharedHttpHandler = new()
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+    };
+
+    private static HttpClient NewHttpClient() =>
+        new(s_sharedHttpHandler, disposeHandler: false)
+        {
+            Timeout = TimeSpan.FromSeconds(15),
+        };
+
     private readonly OpenDotaClient _openDota;
     private readonly StratzClient _stratz;
     private readonly SteamOpenIdService _steamAuth;
@@ -30,9 +45,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
-        var http1 = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        var http2 = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        var http3 = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var http1 = NewHttpClient();
+        var http2 = NewHttpClient();
+        var http3 = NewHttpClient();
         _openDota = new OpenDotaClient(http1);
         // Stratz API token — спершу з secrets/tokens.env, потім fallback на env var.
         _stratz = new StratzClient(http2, TokenStore.Get("STRATZ_TOKEN"));
@@ -56,7 +71,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var playbook = PlaybookLoader.LoadMidMvp();
+            var playbook = PlaybookLoader.LoadRole5();
             var zones = ZoneCatalog.LoadDefault();
             // Початковий рендер: показуємо квести з нульовим прогресом ще до першого GSI-стейту.
             var initialScheduler = new QuestScheduler();

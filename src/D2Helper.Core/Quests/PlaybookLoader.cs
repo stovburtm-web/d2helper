@@ -13,6 +13,8 @@ public static class PlaybookLoader
 
     public static PlaybookDefinition LoadRole5Sample() => LoadFile("role5.sample.json");
 
+    public static PlaybookDefinition LoadRole5() => LoadFile("role5.json");
+
     public static PlaybookDefinition LoadMidMvp() => LoadFile("midlane.mvp.json");
 
     private static PlaybookDefinition LoadFile(string fileName)
