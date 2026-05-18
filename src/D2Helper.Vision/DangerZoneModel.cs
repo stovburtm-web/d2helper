@@ -112,6 +112,10 @@ public static class DangerZoneModel
     /// <param name="friendlyControl">V1.4: локальна присутність союзних героїв і лайн-крепів (0..1.5+).
     /// Контр-балансує загрозу: є з ким приймати файт → danger знижується. <c>NaN</c> = вимкнено.</param>
     /// <param name="friendlyControlWeight">Множник: 4 союзники поряд (fc≈1.0) → -0.4 danger.</param>
+    /// <param name="towerAuraLocal">V1.7: signed aura живих веж у цій точці (з <c>TowerSnapshot.SampleAura</c>).
+    /// Додатне значення = поряд живі ворожі вежі (підвищує danger), від'ємне = свої вежі (safety).
+    /// <c>NaN</c> = немає даних про вежі.</param>
+    /// <param name="towerAuraWeight">Множник tower-aura: при 1.0 повна aura T3 переб'є absence-crush навіть на 25-й хв.</param>
     public static float ComputeDangerDynamic(
         float wx, float wy, PlayerSide side, float gameTime,
         float fogDensity = 0.5f,
@@ -126,7 +130,9 @@ public static class DangerZoneModel
         float absenceScore = float.NaN,
         float absenceWeight = 0.75f,
         float friendlyControl = float.NaN,
-        float friendlyControlWeight = 0.50f)
+        float friendlyControlWeight = 0.50f,
+        float towerAuraLocal = float.NaN,
+        float towerAuraWeight = 0.30f)
     {
         float baseDanger = ComputeDanger(wx, wy, side, gameTime);
         float danger = baseDanger;
@@ -226,6 +232,16 @@ public static class DangerZoneModel
             float fc = friendlyControl;
             if (fc > 1.5f) fc = 1.5f;
             danger -= fc * friendlyControlWeight;
+        }
+
+        // V1.7: tower aura — справжні живі вежі переб'ють absence-crush у своїх зонах.
+        // - Поряд жива ворожа вежа → +danger (creep aggression, gank вертушка з-під вежі).
+        // - Поряд жива своя вежа → -danger (safety, відступ).
+        // Мертві вежі не дають внеску → коли впаде ворожий Т1, та зона природно стає
+        // прохідною для пуша, не потребуючи штучних gate'ів за gameTime.
+        if (!float.IsNaN(towerAuraLocal) && towerAuraLocal != 0f)
+        {
+            danger += towerAuraLocal * towerAuraWeight;
         }
 
         if (danger < 0f) danger = 0f;

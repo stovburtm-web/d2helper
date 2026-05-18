@@ -33,6 +33,7 @@ public partial class DangerHeatmapWindow : Window
     private IDisposable? _gsiSub;
     private IDisposable? _frameSub;
     private IDisposable? _deathSub;
+    private IDisposable? _towerSub;
 
     private PlayerSide _side = PlayerSide.Radiant;
     private bool _sideLocked;
@@ -43,6 +44,10 @@ public partial class DangerHeatmapWindow : Window
     private readonly MinimapPresenceTracker _presenceTracker = new();
     private EnemyPresenceSnapshot? _presence;
     private EnemyPresenceSnapshot? _friendly;
+    // V1.7: tower snapshot — для початку всі живі, поновлюється при TowerDestroyed.
+    // Простий лічильник на стороно/лайн дає нам tier (1-й destroy на TopLane Dire = T1Top тощо).
+    private TowerSnapshot _towers = TowerSnapshot.AllAlive();
+    private readonly Dictionary<(TowerTeam, string), int> _towerDestroyCount = new();
     private DateTime _lastRender = DateTime.MinValue;
     private int _renderedW = -1, _renderedH = -1;
     private PlayerSide _renderedSide;
@@ -82,6 +87,10 @@ public partial class DangerHeatmapWindow : Window
             // в EnemyPresenceSnapshot → absence-confidence досягає 1.0 з меншою к-стю fresh enemies.
             _deathSub = _gsi.PlayerDeaths
                 .Subscribe(evt => Dispatcher.UIThread.Post(() => OnEnemyDeath(evt)));
+            // V1.7: вежа впала → оновлюємо TowerSnapshot. GSI event дає тільки (team, lane) —
+            // tier виводимо з порядку (1-й destroy на лайні = T1, 2-й = T2, 3-й = T3).
+            _towerSub = _gsi.TowerDestroyed
+                .Subscribe(evt => Dispatcher.UIThread.Post(() => OnTowerDestroyed(evt)));
         };
         Closed += (_, _) =>
         {
@@ -89,6 +98,7 @@ public partial class DangerHeatmapWindow : Window
             _gsiSub?.Dispose();
             _frameSub?.Dispose();
             _deathSub?.Dispose();
+            _towerSub?.Dispose();
         };
     }
 
@@ -295,6 +305,62 @@ public partial class DangerHeatmapWindow : Window
         return Math.Min(80f, Math.Max(15f, r));
     }
 
+    /// <summary>
+    /// V1.7: подія знищення вежі. GSI дає <c>Team</c> (Radiant/Dire) і <c>Location</c>
+    /// (TopLane/MiddleLane/BottomLane/Base) — без tier. Tier виводимо з порядку: 1-ша
+    /// знищена на лайні = T1, 2-га = T2, 3-тя = T3, Base = T4Left/T4Right (за лічильником).
+    /// </summary>
+    private void OnTowerDestroyed(Dota2GSI.EventMessages.TowerDestroyed evt)
+    {
+        try
+        {
+            if (evt is null) return;
+            var teamStr = evt.Team.ToString();
+            var team = teamStr.Equals("Radiant", StringComparison.OrdinalIgnoreCase)
+                ? TowerTeam.Radiant
+                : teamStr.Equals("Dire", StringComparison.OrdinalIgnoreCase)
+                    ? TowerTeam.Dire
+                    : (TowerTeam?)null;
+            if (team is null) return;
+
+            var loc = evt.Location.ToString();
+            var key = ResolveTowerKey(team.Value, loc);
+            if (key is null) return;
+
+            _towers = _towers.WithDestroyed(team.Value, key.Value);
+            _dynamicDirty = true;
+            Console.WriteLine($"[HEATMAP] Tower destroyed: {team} {key}");
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private TowerKey? ResolveTowerKey(TowerTeam team, string location)
+    {
+        string lane;
+        if (location.Contains("Top", StringComparison.OrdinalIgnoreCase))    lane = "Top";
+        else if (location.Contains("Mid", StringComparison.OrdinalIgnoreCase)) lane = "Mid";
+        else if (location.Contains("Bot", StringComparison.OrdinalIgnoreCase)) lane = "Bot";
+        else if (location.Contains("Base", StringComparison.OrdinalIgnoreCase)) lane = "Base";
+        else return null;
+
+        var counterKey = (team, lane);
+        _towerDestroyCount.TryGetValue(counterKey, out int n);
+        n++;
+        _towerDestroyCount[counterKey] = n;
+
+        return lane switch
+        {
+            "Top" => n switch { 1 => TowerKey.T1Top, 2 => TowerKey.T2Top, 3 => TowerKey.T3Top, _ => null },
+            "Mid" => n switch { 1 => TowerKey.T1Mid, 2 => TowerKey.T2Mid, 3 => TowerKey.T3Mid, _ => null },
+            "Bot" => n switch { 1 => TowerKey.T1Bot, 2 => TowerKey.T2Bot, 3 => TowerKey.T3Bot, _ => null },
+            "Base" => n switch { 1 => TowerKey.T4Left, 2 => TowerKey.T4Right, _ => null },
+            _ => (TowerKey?)null,
+        };
+    }
+
     private void OnVisionFrame(VisionFrame frame)
     {
         try
@@ -334,7 +400,8 @@ public partial class DangerHeatmapWindow : Window
                 heroWorld: _heroWorld,
                 empirical: _empiricalField,
                 presence: _presence,
-                friendlyForce: _friendly);
+                friendlyForce: _friendly,
+                towers: _towers);
             using var ms = new MemoryStream();
             dbmp.Save(ms, DImageFormat.Png);
             ms.Position = 0;

@@ -129,4 +129,66 @@ public class DangerZoneModelTests
         Assert.True(lateGameAbsent < lateGameBase * 0.6f,
             $"late game absence should crush significantly below base ({lateGameBase:F3}), got {lateGameAbsent:F3}");
     }
+
+    // === V1.7: tower aura ===
+
+    [Fact]
+    public void V17_AliveEnemyTower_AddsDanger_OverAbsence()
+    {
+        // Radiant гравець, на 0:01 (всі вежі живі), absence=1 (5-ка ворогів у фонтані).
+        // Без tower aura — danger у ворожому Т1 bot crushed до floor ≈ 0.41 (V1.6.1).
+        // З tower aura — Dire T1 bot жива → додає сильний +danger → точка ≥0.55 (red/orange).
+        var towers = D2Helper.Core.Models.TowerSnapshot.AllAlive();
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Dire[D2Helper.Core.Models.TowerKey.T1Bot];
+        float aura = towers.SampleAura(tx, ty, playerIsRadiant: true);
+
+        var withTower = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 1f,
+            absenceScore: 1f, towerAuraLocal: aura);
+        var withoutTower = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 1f,
+            absenceScore: 1f);
+        Assert.True(withTower > withoutTower,
+            $"tower aura should raise danger: with={withTower:F3} vs without={withoutTower:F3}");
+        Assert.True(withTower >= 0.55f,
+            $"Dire T1 bot with alive tower should be red/orange (≥0.55), got {withTower:F3}");
+    }
+
+    [Fact]
+    public void V17_DeadEnemyTower_GivesNoAura_AllowsAbsenceCrush()
+    {
+        // Та сама точка — Dire T1 bot — але вежа знищена. Тоді tower aura ≈ 0
+        // (інші вежі далеко), і absence-crush повертає зону до floor (~0.41).
+        var towers = D2Helper.Core.Models.TowerSnapshot.AllAlive()
+            .WithDestroyed(D2Helper.Core.Models.TowerTeam.Dire, D2Helper.Core.Models.TowerKey.T1Bot);
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Dire[D2Helper.Core.Models.TowerKey.T1Bot];
+        float aura = towers.SampleAura(tx, ty, playerIsRadiant: true);
+
+        // Інші вежі далеко (Т2 bot Dire +1500, Т2 mid Dire +кілька тис) → aura < 0.4.
+        Assert.True(aura < 0.4f, $"dead T1 bot should have weak residual aura, got {aura:F3}");
+
+        var result = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 1f,
+            absenceScore: 1f, towerAuraLocal: aura);
+        Assert.True(result < 0.55f, $"dead-tower zone should crush below red, got {result:F3}");
+    }
+
+    [Fact]
+    public void V17_FriendlyTowerNearby_PullsDangerDown()
+    {
+        // Точка біля свого Т2 mid Radiant. Без aura — це межа лісу, danger ≈ 0.35-0.45.
+        // З aura — присутність двох живих веж (Т2 + Т3 mid) тягне ще нижче.
+        var towers = D2Helper.Core.Models.TowerSnapshot.AllAlive();
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Radiant[D2Helper.Core.Models.TowerKey.T2Mid];
+        float aura = towers.SampleAura(tx, ty, playerIsRadiant: true);
+        Assert.True(aura < 0f, $"own tower zone should have negative aura (safety), got {aura:F3}");
+
+        var withTower = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f,
+            towerAuraLocal: aura);
+        var withoutTower = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f);
+        Assert.True(withTower < withoutTower,
+            $"friendly tower aura should reduce danger: with={withTower:F3} vs without={withoutTower:F3}");
+    }
 }
