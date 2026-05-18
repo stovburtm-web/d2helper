@@ -152,22 +152,10 @@ public static class DangerZoneModel
             danger += fogDelta; // зменшення тільки у своїй половині
         }
 
-        // Halo навколо героя: лінійне затухання від центру до радіуса.
-        // Активний ТІЛЬКИ у своїй/нейтральній зоні (base < 0.55). На ворожому highground
-        // присутність героя не "розсвічує" точку — там і має лишатись червоне попередження.
-        if (heroX is float hx && heroY is float hy && danger < 0.55f)
-        {
-            float dx = wx - hx;
-            float dy = wy - hy;
-            float dist = MathF.Sqrt(dx * dx + dy * dy);
-            if (dist < heroHaloRadius)
-            {
-                float halo = 1f - dist / heroHaloRadius;
-                // Сглажуємо щоб не було різкого кола.
-                halo = halo * halo;
-                danger -= halo * heroHaloWeight;
-            }
-        }
+        // V1.7.2: hero-halo прибрано. Сама присутність героя на точці ≠ безпека —
+        // "де я зараз стою" не повинно зеленити навколо. Підказку про safety має давати
+        // лише комбінація tower-aura (своя вежа поряд) + friendlyControl (2+ союзники).
+        _ = heroX; _ = heroY; _ = heroHaloRadius; _ = heroHaloWeight; // unused, params kept for API compat
 
         // Empirical death density — асиметричний nudge:
         //   - відсутність зафіксованих смертей у вибірці != безпека (вибірка ~1k матчів).
@@ -225,11 +213,13 @@ public static class DangerZoneModel
             }
         }
 
-        // V1.4: friendly control — союзні герої/крепи поряд → загроза знижується.
-        // Не скасовує presence (ворог свіжий все одно небезпечний), але зменшує базовий ризик «я самий».
-        if (!float.IsNaN(friendlyControl) && friendlyControl > 0f)
+        // V1.7.2: friendly control працює ТІЛЬКИ якщо реально 2+ союзників поряд
+        // І точка вже у contested/danger зоні (base ≥ 0.38). "Я сам стою на лайні" ≠ safety.
+        // Один союзний герой на власній точці дає SampleLocal ≈ 1.0; пара героїв на тій же точці ~1.5.
+        // Тому поріг fc > 1.2 — це гарантує що поряд є хоча б 1 додатковий ally, окрім тебе самого.
+        if (!float.IsNaN(friendlyControl) && friendlyControl > 1.2f && baseDanger >= 0.38f)
         {
-            float fc = friendlyControl;
+            float fc = friendlyControl - 1.0f; // знімаємо внесок самого гравця
             if (fc > 1.5f) fc = 1.5f;
             danger -= fc * friendlyControlWeight;
         }

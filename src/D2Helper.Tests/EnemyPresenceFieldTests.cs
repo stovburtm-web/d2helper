@@ -148,21 +148,26 @@ public class EnemyPresenceFieldTests
     [Fact]
     public void DangerDynamic_FriendlyControl_LowersBaseDanger()
     {
+        // V1.7.2: 1 ally біля власної точки (fc≈1.0) не дає safety — нужно принаймні пара (fc>1.2).
         // Ворожий highground без жодного контексту.
         float baseD = DangerZoneModel.ComputeDangerDynamic(5500, 5500, PlayerSide.Radiant, 600);
-        // Купа союзників (fc=1.0) поряд — приймемо файт.
-        float withAllies = DangerZoneModel.ComputeDangerDynamic(5500, 5500, PlayerSide.Radiant, 600,
+        // Один союзник (сам гравець) — ніякого ефекту.
+        float solo = DangerZoneModel.ComputeDangerDynamic(5500, 5500, PlayerSide.Radiant, 600,
             friendlyControl: 1.0f);
+        Assert.Equal(baseD, solo);
+        // Купа союзників (fc=2.0) поряд — приймемо файт.
+        float withAllies = DangerZoneModel.ComputeDangerDynamic(5500, 5500, PlayerSide.Radiant, 600,
+            friendlyControl: 2.0f);
         Assert.True(withAllies < baseD - 0.3f,
-            $"friendly control should drop danger; was {baseD}, now {withAllies}");
+            $"2+ allies should drop danger; was {baseD}, now {withAllies}");
     }
 
     [Fact]
     public void DangerDynamic_EnemyVsFriendly_BothApplied()
     {
-        // Ворог поряд (+0.6 nudge) + союзники поряд (-0.4) → майже нейтрально.
+        // Ворог поряд (+0.6 nudge) + 2+ союзники поряд (fc=2.0, ефект -0.5) → майже нейтрально.
         float withBoth = DangerZoneModel.ComputeDangerDynamic(0, 0, PlayerSide.Radiant, 600,
-            presenceLocal: 1.0f, friendlyControl: 1.0f);
+            presenceLocal: 1.0f, friendlyControl: 2.0f);
         float onlyEnemy = DangerZoneModel.ComputeDangerDynamic(0, 0, PlayerSide.Radiant, 600,
             presenceLocal: 1.0f);
         Assert.True(withBoth < onlyEnemy - 0.3f,
