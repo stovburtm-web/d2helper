@@ -170,9 +170,9 @@ public class DangerZoneModelTests
         Assert.True(aura < 0.2f, $"T1+T2 bot dead → near-zero aura, got {aura:F3}");
 
         var result = DangerZoneModel.ComputeDangerDynamic(
-            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 1f,
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f,
             absenceScore: 1f, towerAuraLocal: aura);
-        Assert.True(result < 0.55f, $"dead-tower zone should crush below red, got {result:F3}");
+        Assert.True(result < 0.65f, $"dead-tower zone should crush below red (<0.65), got {result:F3}");
     }
 
     [Fact]
@@ -341,5 +341,25 @@ public class DangerZoneModelTests
         }
         float far = dead.SampleEnemyTowerCoverage(tx, ty, playerIsRadiant: true);
         Assert.Equal(0.3f, far);
+    }
+
+    [Fact]
+    public void V183_FarFromOwnFountain_OnRadiantTopOfflane_IsRed()
+    {
+        // Юзкейс зі скріншоту: топ-офлейн Radiant (верхньо-лівий кут карти, ~(-6500,+6500)).
+        // Стара модель (діагональна проекція) показувала там neutral (~0.5), бо точка
+        // рівновіддалена від обох фонтанів. Нова distance-from-own-fountain має показати
+        // там red, бо точка ДУЖЕ далеко від Radiant fountain (d≈13500 unit, max ≈19800).
+        var d = DangerZoneModel.ComputeDanger(-6500, 6500, PlayerSide.Radiant, gameTime: 282f);
+        Assert.True(d >= 0.65f, $"Radiant top offlane corner expected red (≥0.65), got {d:F3}");
+    }
+
+    [Fact]
+    public void V183_BehindOwnT2_LateGame_IsContestedNotSafe()
+    {
+        // Свій ліс ВИЩЕ за T2 mid (далі від фонтану) у late game — це не "повністю безпечно".
+        // Туди можуть зайти герої через річку. Має бути yellow+ не green.
+        var d = DangerZoneModel.ComputeDanger(-3000, -3000, PlayerSide.Radiant, gameTime: 1500f);
+        Assert.True(d >= 0.20f, $"behind own T2 at 25min expected yellow (≥0.20), got {d:F3}");
     }
 }

@@ -40,47 +40,61 @@ public static class DangerZoneModel
     /// <param name="gameTime">Час гри в секундах (Map.GameTime). Може бути від'ємним до 0:00.</param>
     public static float ComputeDanger(float wx, float wy, PlayerSide side, float gameTime)
     {
-        // 1. Проекція на вісь "свій фонтан → ворожий фонтан".
-        // Це фактично нормована величина (wx+wy) з різним знаком для Radiant/Dire.
-        // Для Radiant вісь напрямлена з (-7000,-7000) до (7000,7000), отже proj = (wx+wy)/(2*7000) ∈ [-1..1].
-        float proj = (side == PlayerSide.Radiant)
-            ? (wx + wy) / 14000f
-            : -(wx + wy) / 14000f;
-        if (proj < -1f) proj = -1f;
-        if (proj > 1f) proj = 1f;
+        // V1.8.3: distance-from-own-fountain model.
+        // Замість лінійної проекції на діагональ fountain→fountain (яка робить топ-half
+        // мапи "автоматично червоним" а лоу-half "автоматично зеленим" не залежно від
+        // того де ти насправді знаходишся), використовуємо ВІДДАЛЬ від свого фонтану.
+        //
+        // Semantic: "безпечна зона" = маленька кишеня навколо власного фонтану/бази.
+        // Чим далі від цієї кишені — тим небезпечніше, бо туди можуть прийти герої з
+        // будь-якого боку. Це природно червонить весь топ-офлейн Radiant (бо він далеко
+        // від Radiant фонтану), а не лише його ворожу частину.
+        //
+        // Phase-залежні радіуси: safe-кишеня СКОРОЧУЄТЬСЯ з часом — на лайн-фазі ще можна
+        // фармити по своєму джунглю, а на 40-й хв безпечно тільки прямо біля throne'у.
+        float ofx = (side == PlayerSide.Radiant) ? -7000f : 7000f;
+        float ofy = (side == PlayerSide.Radiant) ? -7000f : 7000f;
+        float dx = wx - ofx;
+        float dy = wy - ofy;
+        float dOwn = (float)Math.Sqrt(dx * dx + dy * dy);
 
-        // 2. Базовий score: переводимо проекцію в [0..1] де 0 — свій фонтан.
-        float baseScore = (proj + 1f) * 0.5f;
+        var (rSafe, rDanger) = ComputeRadii(gameTime);
+        float score;
+        if (dOwn <= rSafe) score = 0f;
+        else if (dOwn >= rDanger) score = 1f;
+        else score = (dOwn - rSafe) / (rDanger - rSafe);
 
-        // 3. Фаза гри — зрушує "нейтральну" точку 0.5 ближче до своєї сторони (тобто
-        //    збільшує danger на однаковій position з часом).
-        float phaseShift = ComputePhaseShift(gameTime);
-        float score = baseScore + phaseShift;
-
-        // 4. М'якший фінальний clamp + легка сигмоїда щоб межа була чіткішою для рендеру.
-        if (score < 0f) score = 0f;
-        if (score > 1f) score = 1f;
         // Sigmoid (k=4) робить перехід посередині різкішим, але всередині зон лишається плавним.
         score = Sigmoid(score, k: 4f);
         return score;
     }
 
-    /// <summary>Зрушення нейтральної точки залежно від часу гри (нелінійне).</summary>
-    private static float ComputePhaseShift(float gameTime)
+    /// <summary>V1.8.3: радіуси safe-кишені та danger-зони, залежні від фази гри.</summary>
+    /// <remarks>
+    /// rSafe — навколо свого фонтану повністю green (score=0).
+    /// rDanger — далі за цей радіус повністю red (score=1).
+    /// Між ними лінійна інтерполяція + sigmoid.
+    /// На 0-й хв rSafe=6000 покриває ~увесь свій ліс. На 40-й хв rSafe=3300 — тільки база.
+    /// </remarks>
+    private static (float rSafe, float rDanger) ComputeRadii(float gameTime)
     {
-        // Шкала зрушень — підібрано емпірично:
-        //   pregame/0..6 хв: -0.03 → 0   (своя half безпечна, АЛЕ річка/підступи лишаються
-        //                                  contested через runes 2:00/4:00 і смок-ганки з мiд'у)
-        //   6..14 хв        : 0  → +0.05 (T1 контестед, межа на лінії шепарда)
-        //   14..25 хв       : +0.05 → +0.15 (T2 контестед, ворог глибше)
-        //   25..40 хв       : +0.15 → +0.22 (late, тільки база безпечна)
-        //   40+ хв          : 0.22 → 0.28
-        if (gameTime < 360f)   return Lerp(-0.03f,  0.00f, gameTime / 360f);
-        if (gameTime < 840f)   return Lerp( 0.00f,  0.05f, (gameTime - 360f) / 480f);
-        if (gameTime < 1500f)  return Lerp( 0.05f,  0.15f, (gameTime - 840f) / 660f);
-        if (gameTime < 2400f)  return Lerp( 0.15f,  0.22f, (gameTime - 1500f) / 900f);
-        return 0.28f;
+        float rSafe;
+        if (gameTime < 360f)       rSafe = Lerp(6000f, 5500f, gameTime / 360f);
+        else if (gameTime < 840f)  rSafe = Lerp(5500f, 4800f, (gameTime - 360f) / 480f);
+        else if (gameTime < 1500f) rSafe = Lerp(4800f, 4000f, (gameTime - 840f) / 660f);
+        else if (gameTime < 2400f) rSafe = Lerp(4000f, 3500f, (gameTime - 1500f) / 900f);
+        else                       rSafe = 3300f;
+
+        // rDanger також трохи зменшується з часом (ворожий пуш ближче), але повільніше.
+        float rDanger;
+        if (gameTime < 360f)       rDanger = 12500f;
+        else if (gameTime < 840f)  rDanger = Lerp(12500f, 12000f, (gameTime - 360f) / 480f);
+        else if (gameTime < 1500f) rDanger = Lerp(12000f, 11500f, (gameTime - 840f) / 660f);
+        else if (gameTime < 2400f) rDanger = Lerp(11500f, 11000f, (gameTime - 1500f) / 900f);
+        else                       rDanger = 10500f;
+        return (rSafe, rDanger);
     }
+
 
     private static float Lerp(float a, float b, float t) => a + (b - a) * t;
 
