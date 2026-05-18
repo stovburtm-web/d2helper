@@ -116,6 +116,10 @@ public static class DangerZoneModel
     /// Додатне значення = поряд живі ворожі вежі (підвищує danger), від'ємне = свої вежі (safety).
     /// <c>NaN</c> = немає даних про вежі.</param>
     /// <param name="towerAuraWeight">Множник tower-aura: при 1.0 повна aura T3 переб'є absence-crush навіть на 25-й хв.</param>
+    /// <param name="enemyCreepHint">V1.8: локальний "creep hint" — сума видимих ворожих лейн-крипів у радіусі ~900.
+    /// Сам по собі НЕ змінює danger; разом з низьким <paramref name="presenceLocal"/> = слабкий
+    /// safety nudge ("вороги десь не на цьому лайні"). <c>NaN</c> або 0 = немає сигналу.</param>
+    /// <param name="enemyCreepHintWeight">Макс зниження danger від creep hint без героїв (за дефолтом -0.12).</param>
     public static float ComputeDangerDynamic(
         float wx, float wy, PlayerSide side, float gameTime,
         float fogDensity = 0.5f,
@@ -132,7 +136,9 @@ public static class DangerZoneModel
         float friendlyControl = float.NaN,
         float friendlyControlWeight = 0.50f,
         float towerAuraLocal = float.NaN,
-        float towerAuraWeight = 0.50f)
+        float towerAuraWeight = 0.50f,
+        float enemyCreepHint = float.NaN,
+        float enemyCreepHintWeight = 0.12f)
     {
         float baseDanger = ComputeDanger(wx, wy, side, gameTime);
         float danger = baseDanger;
@@ -247,6 +253,30 @@ public static class DangerZoneModel
                 {
                     danger += towerAuraLocal * towerAuraWeight; // negative → reduce
                 }
+            }
+        }
+
+        // V1.8: enemy creep hint — видимі ворожі лейн-крипи на цьому тіку. Сам по собі НЕ
+        // загроза, а ІНФОРМАЦІЯ: "тут зараз бачимо ворожих крипів". У поєднанні з низьким
+        // presenceLocal (немає видимих ворожих героїв поряд) це означає "вороги десь не на
+        // цьому лайні" — ймовірно smoke gank/rosh/torm деінде. Локально це м'який safety nudge:
+        // можна підійти до краю хвилі і пофармити, але глибше за неї — не йти.
+        //
+        // Gate'и:
+        //   1) creepHint > 0.3  — реально бачимо хвилю, не випадковий крип.
+        //   2) presenceLocal < 0.2 — поряд немає ворожих героїв (інакше це активний laning).
+        //   3) baseDanger < 0.70 — не в глибокій ворожій зоні (під T3 не зеленимо ніколи).
+        //
+        // Влив: до -enemyCreepHintWeight (за дефолтом -0.12) у точці кластера крипів,
+        // спадає з гаусіаною до 0 на ~900 unit (як SampleCreepLocal).
+        if (!float.IsNaN(enemyCreepHint) && enemyCreepHint > 0.3f && baseDanger < 0.70f)
+        {
+            bool enemyHeroNearby = !float.IsNaN(presenceLocal) && presenceLocal >= 0.2f;
+            if (!enemyHeroNearby)
+            {
+                float hint = enemyCreepHint;
+                if (hint > 1.5f) hint = 1.5f;
+                danger -= hint * enemyCreepHintWeight;
             }
         }
 

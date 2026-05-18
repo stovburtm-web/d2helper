@@ -82,6 +82,8 @@ public sealed class MinimapPresenceTracker
         _enemyFountainY = myIsRadiant ? 7000f : -7000f;
 
         var allyDots = new List<EnemyDot>();
+        // V1.8: видимі ворожі лейн-крипи на цьому тіку (без ghost — рухаються швидко).
+        var enemyCreeps = new List<EnemyDot>();
 
         // 1. Один прохід: оновлюємо ghost-state для ворогів + збираємо allies.
         foreach (var kvp in gs.Minimap.Elements)
@@ -98,8 +100,18 @@ public sealed class MinimapPresenceTracker
 
             if (el.Team == enemyTeam)
             {
-                if (!isHero) continue; // ghost-трекаємо тільки ворожих героїв
-                _lastSeen[name] = (el.Location.X, el.Location.Y, now);
+                if (isHero)
+                {
+                    _lastSeen[name] = (el.Location.X, el.Location.Y, now);
+                }
+                else if (isLaneCreep)
+                {
+                    // V1.8: трекаємо ворожих крипів як "creep hint" — окремий канал від heroes.
+                    // Малий weight (0.3): один крип = слабкий сигнал; вся хвиля з 4-5 крипів
+                    // у точці складеться до ~1.2-1.5 → достатньо для visible halo.
+                    enemyCreeps.Add(new EnemyDot(el.Location.X, el.Location.Y, 0f, Weight: 0.3f));
+                }
+                continue;
             }
             else if (el.Team == allyTeam)
             {
@@ -112,7 +124,7 @@ public sealed class MinimapPresenceTracker
         }
 
         // 2. Збираємо вороги + чистимо застарілі ghost'и.
-        var enemySnap = BuildEnemySnapshotFromLastSeen(now);
+        var enemySnap = BuildEnemySnapshotFromLastSeen(now, enemyCreeps);
 
         // 3. Кешуємо ally snapshot для anti-flicker логіки наступних тіків.
         _lastAllies = allyDots;
@@ -121,7 +133,7 @@ public sealed class MinimapPresenceTracker
         return (enemySnap, new EnemyPresenceSnapshot(allyDots));
     }
 
-    private EnemyPresenceSnapshot BuildEnemySnapshotFromLastSeen(DateTime now)
+    private EnemyPresenceSnapshot BuildEnemySnapshotFromLastSeen(DateTime now, IReadOnlyList<EnemyDot>? creeps = null)
     {
         var enemyDots = new List<EnemyDot>(_lastSeen.Count);
         var toRemove = new List<string>();
@@ -153,7 +165,11 @@ public sealed class MinimapPresenceTracker
         foreach (var pid in staleDeath) _enemyDeadUntil.Remove(pid);
         int alive = Math.Max(0, 5 - dead);
 
-        return new EnemyPresenceSnapshot(enemyDots) { AliveEnemyCount = alive };
+        return new EnemyPresenceSnapshot(enemyDots)
+        {
+            AliveEnemyCount = alive,
+            CreepDots = creeps ?? Array.Empty<EnemyDot>(),
+        };
     }
 
     /// <summary>

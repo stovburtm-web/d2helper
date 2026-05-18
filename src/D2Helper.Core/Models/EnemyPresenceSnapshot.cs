@@ -37,6 +37,12 @@ public sealed class EnemyPresenceSnapshot
     /// Використовується в <see cref="SampleAbsence"/> для динамічного знаменника confidence.</summary>
     public int AliveEnemyCount { get; init; } = 5;
 
+    /// <summary>V1.8: видимі ворожі лейн-крипи у поточний тік. БЕЗ ghost-decay (крипи рухаються
+    /// швидко, історія неактуальна) — щотіка перебудовується з GSI. Використовується як
+    /// «safety hint»: якщо крипи видимі, а ворожих героїв поряд немає, ця ділянка ймовірно
+    /// pacified (вороги десь не на цьому лайні).</summary>
+    public IReadOnlyList<EnemyDot> CreepDots { get; init; } = Array.Empty<EnemyDot>();
+
     public EnemyPresenceSnapshot(IReadOnlyList<EnemyDot> dots)
     {
         Dots = dots;
@@ -110,5 +116,31 @@ public sealed class EnemyPresenceSnapshot
         int denom = Math.Max(1, AliveEnemyCount - 1);
         float confidence = Math.Min(1f, FreshCount / (float)denom);
         return ratio * confidence;
+    }
+
+    /// <summary>
+    /// V1.8: локальний "creep hint" у точці (wx, wy) — сума гаусіан від видимих ворожих
+    /// лейн-крипів. Радіус ~900 unit (приблизний радіус хвилі). Не залежить від stale,
+    /// бо крипи в <see cref="CreepDots"/> завжди свіжі.
+    ///
+    /// Семантика інтерпретації — у <c>DangerZoneModel</c>: якщо creep hint &gt; 0 І
+    /// presenceLocal малий (немає ворожих героїв поряд) → ділянка "м'яко зеленіє" як
+    /// safety signal ("вороги десь не на цьому лайні, можу пофармити поруч").
+    /// </summary>
+    public float SampleCreepLocal(float wx, float wy)
+    {
+        if (CreepDots.Count == 0) return 0f;
+        float sum = 0f;
+        const float radius = 900f;
+        const float sigma2 = radius * radius * 0.5f;
+        foreach (var d in CreepDots)
+        {
+            float dx = wx - d.Wx;
+            float dy = wy - d.Wy;
+            float r2 = dx * dx + dy * dy;
+            if (r2 > sigma2 * 9f) continue; // cutoff на ~3σ
+            sum += d.Weight * (float)Math.Exp(-r2 / sigma2);
+        }
+        return sum;
     }
 }

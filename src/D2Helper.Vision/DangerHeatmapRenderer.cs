@@ -58,6 +58,7 @@ public static class DangerHeatmapRenderer
                         : empirical.Sample(wx, wy, side, gameTime);
                     float pres = presence is null ? float.NaN : presence.SampleLocal(wx, wy);
                     float absc = presence is null ? float.NaN : presence.SampleAbsence(wx, wy);
+                    float creepHint = presence is null ? float.NaN : presence.SampleCreepLocal(wx, wy);
                     float fc = friendlyForce is null ? float.NaN : friendlyForce.SampleLocal(wx, wy);
                     float tower = towers is null ? float.NaN : towers.SampleAura(wx, wy, side == PlayerSide.Radiant);
                     float danger = DangerZoneModel.ComputeDangerDynamic(
@@ -68,7 +69,8 @@ public static class DangerHeatmapRenderer
                         presenceLocal: pres,
                         absenceScore: absc,
                         friendlyControl: fc,
-                        towerAuraLocal: tower);
+                        towerAuraLocal: tower,
+                        enemyCreepHint: creepHint);
 
                     // 3 чіткі зони з різкими межами. Жовтий — вузька contested-смуга.
                     var (r, g, b, a) = DangerToBand(danger, alpha);

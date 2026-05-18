@@ -214,4 +214,52 @@ public class DangerZoneModelTests
         Assert.True(withEnemies > withoutEnemies + 0.05f,
             $"visible enemy hero must block friendly tower aura: with={withEnemies:F3} vs without={withoutEnemies:F3}");
     }
+
+    [Fact]
+    public void V18_EnemyCreepHint_WithoutHeroes_NudgesDangerDown()
+    {
+        // Біля річки/міду (нейтральна зона) видно ворожих крипів, але героїв поряд НЕ видно.
+        // Це сигнал "вороги десь не на цьому лайні" → м'який safety nudge.
+        var baseDanger = DangerZoneModel.ComputeDanger(0, 0, PlayerSide.Radiant, 600f);
+        Assert.InRange(baseDanger, 0.0f, 0.7f); // переконуємось що ми не у глибокій ворожій зоні
+
+        var withCreeps = DangerZoneModel.ComputeDangerDynamic(
+            wx: 0, wy: 0, side: PlayerSide.Radiant, gameTime: 600f,
+            enemyCreepHint: 1.0f);
+        var baseline = DangerZoneModel.ComputeDangerDynamic(
+            wx: 0, wy: 0, side: PlayerSide.Radiant, gameTime: 600f);
+        Assert.True(withCreeps < baseline,
+            $"creep hint without heroes should reduce danger: with={withCreeps:F3} vs base={baseline:F3}");
+    }
+
+    [Fact]
+    public void V18_EnemyCreepHint_WithHeroes_HasNoEffect()
+    {
+        // Та сама зона, але поруч є ворожий герой. Crеep hint вимикається — це активний laning,
+        // не "вороги десь у роші". Danger визначається presence-додатком.
+        var withCreepsAndHero = DangerZoneModel.ComputeDangerDynamic(
+            wx: 0, wy: 0, side: PlayerSide.Radiant, gameTime: 600f,
+            presenceLocal: 0.5f, enemyCreepHint: 1.0f);
+        var withHeroOnly = DangerZoneModel.ComputeDangerDynamic(
+            wx: 0, wy: 0, side: PlayerSide.Radiant, gameTime: 600f,
+            presenceLocal: 0.5f);
+        Assert.Equal(withHeroOnly, withCreepsAndHero);
+    }
+
+    [Fact]
+    public void V18_EnemyCreepHint_DeepEnemyZone_NoEffect()
+    {
+        // Глибока ворожа зона (під T3): крипи там — це норма, не індикатор "вороги в роші".
+        // Hint не повинен зеленити Tier3-зону.
+        var (tx, ty) = D2Helper.Core.Models.TowerMap.Dire[D2Helper.Core.Models.TowerKey.T3Mid];
+        var baseDanger = DangerZoneModel.ComputeDanger(tx, ty, PlayerSide.Radiant, 600f);
+        Assert.True(baseDanger >= 0.70f, $"T3Mid Dire mussled be deep enemy zone (≥0.70), got {baseDanger:F3}");
+
+        var withCreeps = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f,
+            enemyCreepHint: 1.5f);
+        var baseline = DangerZoneModel.ComputeDangerDynamic(
+            wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f);
+        Assert.Equal(baseline, withCreeps);
+    }
 }
