@@ -35,5 +35,8 @@
         </Transitions>
       </Image.Transitions>
     </Image>
+    <!-- V2.0: layer для FightDetector пульсів. Sкоординати mінімапи (DIP),
+         ScaleTransform тримає коло у центрі (RenderTransformOrigin=0.5,0.5). -->
+    <Canvas x:Name="PulseCanvas" IsHitTestVisible="False"/>
   </Grid>
 </Window>

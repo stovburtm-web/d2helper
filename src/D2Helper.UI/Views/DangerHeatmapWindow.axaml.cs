@@ -3,9 +3,12 @@ using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using D2Helper.Core.Gsi;
 using D2Helper.Core.Models;
@@ -13,6 +16,7 @@ using D2Helper.Vision;
 using Dota2GSI;
 using DBitmap = System.Drawing.Bitmap;
 using DImageFormat = System.Drawing.Imaging.ImageFormat;
+using Ellipse = Avalonia.Controls.Shapes.Ellipse;
 
 namespace D2Helper.UI.Views;
 
@@ -44,6 +48,19 @@ public partial class DangerHeatmapWindow : Window
     private readonly MinimapPresenceTracker _presenceTracker = new();
     private EnemyPresenceSnapshot? _presence;
     private EnemyPresenceSnapshot? _friendly;
+    // V2.0/V2.1/V2.2: real-time FightDetector. Видає FightEvent на HP-burst, CC-edge або
+    // pre-fight (кластер/ізоляція) — підсвічуємо на мінімапі та (для Teamfight) пінгаємо звук.
+    private readonly FightDetector _fightDetector = new();
+    private DateTime _lastBeepUtc = DateTime.MinValue;
+    // V2.0: per-hero кулдаун 30с на пінг. FightDetector може фаїрити послідовно (CC → burst → death)
+    // для одного в того ж героя — render-layer стискає, щоб не спамити. Key = PlayerId.
+    private readonly Dictionary<int, DateTime> _lastPulseByPlayer = new();
+    private const double PulsePerHeroCooldownSec = 30.0;
+    // V2.0.1: синтетичний двотоновий пінг (D6→G6, ~280мс, 16-bit mono PCM @ 44.1kHz).
+    // Будується раз у TryLoadTeamfightSound() і кешується тут; на кожен Play() — новий
+    // RawSourceWaveStream+WaveOutEvent, щоб concurrent ping'и не глушили один одного.
+    // Фолбек: Win32 MessageBeep.
+    private byte[]? _pingPcmBytes;
     // V1.7: tower snapshot — для початку всі живі, поновлюється при TowerDestroyed.
     // Простий лічильник на стороно/лайн дає нам tier (1-й destroy на TopLane Dire = T1Top тощо).
     private TowerSnapshot _towers = TowerSnapshot.AllAlive();
@@ -59,6 +76,7 @@ public partial class DangerHeatmapWindow : Window
     private Image? _heatmapB;
     private bool _useB; // в який буфер писати наступний кадр (false=A, true=B)
     private Canvas? _root;
+    private Canvas? _pulseCanvas; // V2.0: лейер для FightEvent-пульсів поверх heatmap
     private bool _windowPlaced;
     private int _placedDotaLeft, _placedDotaTop, _placedW, _placedH;
 
@@ -70,6 +88,7 @@ public partial class DangerHeatmapWindow : Window
         _heatmapA = this.FindControl<Image>("HeatmapImageA");
         _heatmapB = this.FindControl<Image>("HeatmapImageB");
         _root = this.FindControl<Canvas>("Root");
+        _pulseCanvas = this.FindControl<Canvas>("PulseCanvas");
 
         Opened += (_, _) =>
         {
@@ -79,9 +98,10 @@ public partial class DangerHeatmapWindow : Window
             // ПІСЛЯ усіх внутрішніх Avalonia style-mutations, які можуть скидати WS_EX.
             Dispatcher.UIThread.Post(ApplyClickThroughStyle, DispatcherPriority.Background);
             TryLoadEmpiricalField();
+            TryLoadTeamfightSound();
             StartPositionLoop();
             _gsiSub = _gsi.States
-                .Sample(TimeSpan.FromMilliseconds(500))
+                .Sample(TimeSpan.FromMilliseconds(250))
                 .Subscribe(gs => Dispatcher.UIThread.Post(() => OnGameState(gs)));
             _frameSub = _vision.Frames
                 .Sample(TimeSpan.FromMilliseconds(750))
@@ -259,6 +279,22 @@ public partial class DangerHeatmapWindow : Window
             var force = _presenceTracker.UpdateForce(gs, _side == PlayerSide.Radiant, DateTime.UtcNow);
             _presence = force.Enemies;
             _friendly = force.Allies;
+
+            // V2.0/V2.1/V2.2: feed FightDetector. Він повертає список FightEvent цього тіка
+            // (death-edge, hp-burst, CC-edge, pre-fight кластер/ізоляція) — спавнимо пульси.
+            try
+            {
+                var events = _fightDetector.Update(gs, _side == PlayerSide.Radiant, _presence, DateTime.UtcNow);
+                if (events.Count > 0)
+                {
+                    foreach (var ev in events)
+                        SpawnPulse(ev);
+                }
+            }
+            catch
+            {
+                // FightDetector помилка не має ламати heatmap loop
+            }
 
             _dynamicDirty = true;
 
@@ -474,5 +510,258 @@ public partial class DangerHeatmapWindow : Window
             Console.WriteLine($"[HEATMAP] Failed to load empirical field: {ex.Message}");
             _empiricalField = null;
         }
+    }
+
+    // ============================================================
+    // V2.0 — FightDetector pulses + audio ping
+    // ============================================================
+
+    /// <summary>
+    /// Win32 MessageBeep — асинхронний beep дефолтним системним звуком. Не блокує UI потік.
+    /// Тип 0x10 = MB_ICONHAND (різкий "критичний" звук) — для Teamfight.
+    /// </summary>
+    [DllImport("user32.dll")]
+    private static extern bool MessageBeep(uint uType);
+
+    private const uint MB_ICONHAND = 0x00000010;
+
+    /// <summary>
+    /// V2.0.1 — синтетичний двотоновий пінг замість mp3. Чиста синусоїда D4→G4 (293.66→392Hz),
+    /// загалом ~350ms з фейдами. Низько-середній регістр (як телефонний тон), теплий і впізнаваний,
+    /// але в Dota такого UI-звуку немає, тому добре «вибивається» з ігрового міксу й не дратує.
+    /// Будується раз і кешується в <see cref="_pingPcmBytes"/>.
+    /// </summary>
+    private void TryLoadTeamfightSound()
+    {
+        try
+        {
+            _pingPcmBytes = BuildTwoTonePingPcm();
+            Console.WriteLine($"[HEATMAP] synthetic ping ready ({_pingPcmBytes.Length} bytes PCM)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[HEATMAP] Failed to build ping: {ex.Message}");
+            _pingPcmBytes = null;
+        }
+    }
+
+    /// <summary>
+    /// Генерує 16-bit mono 44100Hz PCM: тон1 D4 (293.66Hz) 150ms → пауза 30ms → тон2 G4 (392Hz) 170ms.
+    /// Низько-середній регістр, теплий, не пискливий; чиста синусоїда не звучить як жоден звук Dota.
+    /// Кожен тон має короткий attack (4ms) і експоненційний decay, щоб не клацало.
+    /// </summary>
+    private static byte[] BuildTwoTonePingPcm()
+    {
+        const int sr = 44100;
+        var seg = new (double freq, int ms)[] { (293.66, 150), (0, 30), (392.00, 170) };
+        int totalSamples = 0;
+        foreach (var (_, ms) in seg) totalSamples += sr * ms / 1000;
+        var pcm = new byte[totalSamples * 2];
+        int pos = 0;
+        double phase = 0;
+        foreach (var (freq, ms) in seg)
+        {
+            int n = sr * ms / 1000;
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)n;
+                double env;
+                if (freq <= 0)
+                {
+                    env = 0; // пауза
+                }
+                else
+                {
+                    // attack 4ms, decay експоненційний
+                    double attack = Math.Min(1.0, i / (sr * 0.004));
+                    double decay = Math.Exp(-3.0 * t);
+                    env = attack * decay;
+                }
+                double s = freq > 0 ? Math.Sin(phase) * env * 0.85 : 0;
+                short sample = (short)(s * short.MaxValue);
+                pcm[pos++] = (byte)(sample & 0xff);
+                pcm[pos++] = (byte)((sample >> 8) & 0xff);
+                if (freq > 0) phase += 2 * Math.PI * freq / sr;
+                else phase = 0;
+            }
+        }
+        return pcm;
+    }
+
+    private void PlayTeamfightPing()
+    {
+        if (_pingPcmBytes is not null)
+        {
+            try
+            {
+                var ms = new MemoryStream(_pingPcmBytes);
+                var fmt = new NAudio.Wave.WaveFormat(44100, 16, 1);
+                var reader = new NAudio.Wave.RawSourceWaveStream(ms, fmt);
+                var output = new NAudio.Wave.WaveOutEvent { Volume = 0.55f }; // 55% — чути поверх Dota, не б'є по вухах
+                output.PlaybackStopped += (_, _) =>
+                {
+                    try { output.Dispose(); } catch { }
+                    try { reader.Dispose(); } catch { }
+                    try { ms.Dispose(); } catch { }
+                };
+                output.Init(reader);
+                output.Play();
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HEATMAP] NAudio play failed: {ex.Message}");
+            }
+        }
+        try { MessageBeep(MB_ICONHAND); } catch { /* no audio device */ }
+    }
+
+    /// <summary>
+    /// Спавнить пульс-коло на мінімапі для конкретного <see cref="FightEvent"/>.
+    /// Колір/розмір/тривалість залежать від <see cref="FightSeverity"/>.
+    /// Для Teamfight — також pingає звук (не частіше 1 разу на 2 секунди).
+    /// </summary>
+    private void SpawnPulse(FightEvent ev)
+    {
+        if (_pulseCanvas is null || _placedW <= 0 || _placedH <= 0) return;
+        var profile = _vision.Profile;
+        if (profile is null) return;
+
+        bool tf = ev.Severity == FightSeverity.Teamfight;
+
+        // V2.0: per-hero кулдаун — ТІЛЬКИ для Teamfight (циан + звук). FightDetector може
+        // фаїрити CC → burst → death послідовно на одного героя; такий «червоний» спам
+        // дратує і губить інформацію. Skirmish (жовтий, без звуку) лишається без cooldown'у —
+        // дрібні події на лайні мають бачитись як вони є.
+        // Якщо в події кілька аллі (cluster_cc) — хоча б один має бути «свіжим».
+        if (tf && ev.InvolvedAllyIds is { Count: > 0 })
+        {
+            var now = DateTime.UtcNow;
+            bool anyFresh = false;
+            foreach (var pid in ev.InvolvedAllyIds)
+            {
+                if (!_lastPulseByPlayer.TryGetValue(pid, out var last) ||
+                    (now - last).TotalSeconds >= PulsePerHeroCooldownSec)
+                {
+                    anyFresh = true;
+                    break;
+                }
+            }
+            if (!anyFresh) return;
+            foreach (var pid in ev.InvolvedAllyIds) _lastPulseByPlayer[pid] = now;
+        }
+
+        // World → пікселі мінімапи (профіль) → DIP (ділимо на DPI scale).
+        var (pxX, pxY) = WorldToMinimap.ToMinimap(ev.Wx, ev.Wy, _placedW, _placedH, profile.IsRotated180);
+        double dipX = pxX / _screenScale;
+        double dipY = pxY / _screenScale;
+
+        // V2.0 кольорова палітра: вибирали щоб НЕ зливались з червоним heatmap-фоном.
+        //   Teamfight = неоновий ціан (#00E5FF) — максимальний контраст до червоного.
+        //   Skirmish   = насичений жовтий (#FFD600).
+        // Додано чорний BoxShadow як halo — відокремлює коло від будь-якого фону.
+        double maxSize = tf ? 52 : 34;
+        var color = tf ? Color.FromRgb(0x00, 0xE5, 0xFF) : Color.FromRgb(0xFF, 0xD6, 0x00);
+        int durMs = tf ? 4500 : 2500;
+
+        var scale = new ScaleTransform(0.35, 0.35);
+        var el = new Ellipse
+        {
+            Width = maxSize,
+            Height = maxSize,
+            Stroke = new SolidColorBrush(color),
+            StrokeThickness = tf ? 4 : 3,
+            Fill = new SolidColorBrush(color, 0.22),
+            Opacity = 1.0,
+            IsHitTestVisible = false,
+            RenderTransform = scale,
+            RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative),
+            // Чорний glow для відокремлення від червоного фону heatmap.
+            Effect = new DropShadowEffect
+            {
+                Color = Colors.Black,
+                BlurRadius = 8,
+                OffsetX = 0,
+                OffsetY = 0,
+                Opacity = 0.95
+            },
+            Transitions = new Transitions
+            {
+                new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(durMs) }
+            }
+        };
+        scale.Transitions = new Transitions
+        {
+            new DoubleTransition { Property = ScaleTransform.ScaleXProperty, Duration = TimeSpan.FromMilliseconds(durMs) },
+            new DoubleTransition { Property = ScaleTransform.ScaleYProperty, Duration = TimeSpan.FromMilliseconds(durMs) }
+        };
+        Canvas.SetLeft(el, dipX - maxSize / 2.0);
+        Canvas.SetTop(el, dipY - maxSize / 2.0);
+        _pulseCanvas.Children.Add(el);
+
+        // Іконка в центрі (⚔ для Teamfight, ! для Skirmish) — допомагає помітити подію
+        // навіть коли коло вже почало згасати. Тримається на повній opacity до останніх 500мс.
+        double iconBox = tf ? 28.0 : 20.0;
+        var icon = new Border
+        {
+            Width = iconBox,
+            Height = iconBox,
+            IsHitTestVisible = false,
+            Opacity = 1.0,
+            Child = new TextBlock
+            {
+                Text = tf ? "\u2694" : "!",                // ⚔ U+2694 / ASCII !
+                FontSize = tf ? 22 : 18,
+                FontWeight = FontWeight.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center
+            },
+            Effect = new DropShadowEffect
+            {
+                Color = Colors.Black,
+                BlurRadius = 6,
+                OffsetX = 0,
+                OffsetY = 0,
+                Opacity = 1.0
+            },
+            Transitions = new Transitions
+            {
+                new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(500) }
+            }
+        };
+        Canvas.SetLeft(icon, dipX - iconBox / 2.0);
+        Canvas.SetTop(icon, dipY - iconBox / 2.0);
+        _pulseCanvas.Children.Add(icon);
+
+        // Кікаємо transition на наступний UI-tick щоб Avalonia встигла зареєструвати початкові значення.
+        Dispatcher.UIThread.Post(() =>
+        {
+            el.Opacity = 0;
+            scale.ScaleX = 1.4;
+            scale.ScaleY = 1.4;
+        }, DispatcherPriority.Background);
+
+        // Прибираємо ellipse + іконку після завершення анімації.
+        // Іконка фейдиться лише в останні 500мс — так встигаєш помітити її очима.
+        DispatcherTimer.RunOnce(() => icon.Opacity = 0, TimeSpan.FromMilliseconds(Math.Max(0, durMs - 500)));
+        DispatcherTimer.RunOnce(() =>
+        {
+            _pulseCanvas?.Children.Remove(el);
+            _pulseCanvas?.Children.Remove(icon);
+        }, TimeSpan.FromMilliseconds(durMs + 100));
+
+        if (tf)
+        {
+            var nowBeep = DateTime.UtcNow;
+            if ((nowBeep - _lastBeepUtc).TotalMilliseconds >= 2000)
+            {
+                _lastBeepUtc = nowBeep;
+                PlayTeamfightPing();
+            }
+        }
+
+        Console.WriteLine($"[FIGHT] {ev.Severity} {ev.Reason} t={ev.EventTime:F1}s wx={ev.Wx:F0} wy={ev.Wy:F0} allies=[{string.Join(",", ev.InvolvedAllyIds)}]");
     }
 }

@@ -14,6 +14,23 @@ public enum FightSeverity
 }
 
 /// <summary>
+/// V2.1: bit-set дизейблів які видно через GSI <c>HeroDetails.HeroState</c>.
+/// Slow/Root GSI <b>НЕ</b> віддає — їх детектити неможливо. На решту реагуємо
+/// як на ранній сигнал що зараз буде burst.
+/// </summary>
+[Flags]
+public enum CcFlags
+{
+    None = 0,
+    Stunned = 1,
+    Hexed = 2,
+    Silenced = 4,
+    Disarmed = 8,
+    /// <summary>Будь-який «hard CC» що блокує дії (stun або hex).</summary>
+    HardDisable = Stunned | Hexed,
+}
+
+/// <summary>
 /// Подія "на цій точці карти прямо зараз щось важливе" — щоб overlay міг блимнути
 /// пульсом на мінімапі й (для Teamfight) дати ping-звук. Видається
 /// <see cref="Gsi.FightDetector"/> на основі рапіного Δhp/Δmp по союзних героях.

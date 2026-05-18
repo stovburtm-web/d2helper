@@ -120,14 +120,14 @@ public static class DangerHeatmapRenderer
 
     /// <summary>3 дискретні зони з різкими межами:
     /// <list type="bullet">
-    /// <item>danger &lt; 0.38 → <b>safe</b> (зелений)</item>
-    /// <item>0.38 ≤ danger ≤ 0.60 → <b>contested</b> (жовтий, тонша смуга)</item>
+    /// <item>danger &lt; 0.25 → <b>safe</b> (зелений) — тільки центр власної бази</item>
+    /// <item>0.25 ≤ danger ≤ 0.60 → <b>contested</b> (жовтий) — "хороший дотер параноїк"</item>
     /// <item>danger &gt; 0.60 → <b>danger</b> (червоний)</item>
     /// </list>
     /// Жовта середина має нижчу альфу, щоб не закривала весь центр мапи.</summary>
     private static (byte R, byte G, byte B, byte A) DangerToBand(float d, byte baseAlpha)
     {
-        if (d < 0.38f)
+        if (d < 0.25f)
             return (40, 200, 80, baseAlpha);          // safe — зелений
         if (d > 0.60f)
             return (230, 40, 30, baseAlpha);          // danger — червоний
