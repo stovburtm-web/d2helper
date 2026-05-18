@@ -59,6 +59,12 @@ public static class DangerHeatmapRenderer
                     float pres = presence is null ? float.NaN : presence.SampleLocal(wx, wy);
                     float absc = presence is null ? float.NaN : presence.SampleAbsence(wx, wy);
                     float creepHint = presence is null ? float.NaN : presence.SampleCreepLocal(wx, wy);
+                    // V1.8.1: directional creep trail — конус "за хвилею" в напрямку ворожого фонтану.
+                    float efx = side == PlayerSide.Radiant ? 7000f : -7000f;
+                    float efy = side == PlayerSide.Radiant ? 7000f : -7000f;
+                    float ofx = -efx;
+                    float ofy = -efy;
+                    float creepBeyond = presence is null ? float.NaN : presence.SampleCreepBeyond(wx, wy, efx, efy, ofx, ofy);
                     float fc = friendlyForce is null ? float.NaN : friendlyForce.SampleLocal(wx, wy);
                     float tower = towers is null ? float.NaN : towers.SampleAura(wx, wy, side == PlayerSide.Radiant);
                     float danger = DangerZoneModel.ComputeDangerDynamic(
@@ -70,7 +76,8 @@ public static class DangerHeatmapRenderer
                         absenceScore: absc,
                         friendlyControl: fc,
                         towerAuraLocal: tower,
-                        enemyCreepHint: creepHint);
+                        enemyCreepHint: creepHint,
+                        enemyCreepBeyond: creepBeyond);
 
                     // 3 чіткі зони з різкими межами. Жовтий — вузька contested-смуга.
                     var (r, g, b, a) = DangerToBand(danger, alpha);

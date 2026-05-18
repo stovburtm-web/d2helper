@@ -120,6 +120,10 @@ public static class DangerZoneModel
     /// Сам по собі НЕ змінює danger; разом з низьким <paramref name="presenceLocal"/> = слабкий
     /// safety nudge ("вороги десь не на цьому лайні"). <c>NaN</c> або 0 = немає сигналу.</param>
     /// <param name="enemyCreepHintWeight">Макс зниження danger від creep hint без героїв (за дефолтом -0.12).</param>
+    /// <param name="enemyCreepBeyond">V1.8.1: directional «creep trail» — конус ВІД ворожого крипа В НАПРЯМКУ ворожого
+    /// фонтану. Семантика: «крипи стоять тут, отже ворожий керрі фармить хвилю зі свого боку, а саппорти
+    /// поряд у своєму джунглі». Підвищує danger у зоні «за хвилею».</param>
+    /// <param name="enemyCreepBeyondWeight">Макс підсилення danger від creep trail (за дефолтом +0.20).</param>
     public static float ComputeDangerDynamic(
         float wx, float wy, PlayerSide side, float gameTime,
         float fogDensity = 0.5f,
@@ -138,7 +142,9 @@ public static class DangerZoneModel
         float towerAuraLocal = float.NaN,
         float towerAuraWeight = 0.50f,
         float enemyCreepHint = float.NaN,
-        float enemyCreepHintWeight = 0.12f)
+        float enemyCreepHintWeight = 0.12f,
+        float enemyCreepBeyond = float.NaN,
+        float enemyCreepBeyondWeight = 0.20f)
     {
         float baseDanger = ComputeDanger(wx, wy, side, gameTime);
         float danger = baseDanger;
@@ -278,6 +284,22 @@ public static class DangerZoneModel
                 if (hint > 1.5f) hint = 1.5f;
                 danger -= hint * enemyCreepHintWeight;
             }
+        }
+
+        // V1.8.1: directional creep trail — «за хвилею». Якщо точка лежить у конусі
+        // вперед-від-крипа-до-ворожого-фонтану, це означає: щоб туди дійти, треба пройти
+        // повз ворожу хвилю/їхній керрі, а у прилеглому ворожому джунглі може чатувати
+        // саппорт. Це справжній лейн-equilibrium-сигнал: чим глибше крипи на нашій стороні,
+        // тим довший такий «червоний хвіст» тягнеться у ворожу половину.
+        //
+        // Працює завжди (на відміну від V1.8 hint, який вимикається біля героїв), бо це
+        // інша інформація: тут небезпека не «через крипів», а «через героїв, які десь
+        // у конусі за крипами». Поріг > 0.2 щоб не реагувати на одиничного крипа.
+        if (!float.IsNaN(enemyCreepBeyond) && enemyCreepBeyond > 0.2f)
+        {
+            float trail = enemyCreepBeyond;
+            if (trail > 1.5f) trail = 1.5f;
+            danger += trail * enemyCreepBeyondWeight;
         }
 
         if (danger < 0f) danger = 0f;

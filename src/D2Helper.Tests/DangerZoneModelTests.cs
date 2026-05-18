@@ -262,4 +262,47 @@ public class DangerZoneModelTests
             wx: tx, wy: ty, side: PlayerSide.Radiant, gameTime: 600f);
         Assert.Equal(baseline, withCreeps);
     }
+
+    [Fact]
+    public void V181_CreepBeyond_BoostsDanger_OnTrailToEnemyFountain()
+    {
+        // Дзеркальна ситуація з прикладу користувача: Radiant-бот лайн, хвиля коло Radiant T2 bot,
+        // sample у Dire-bot-jungle (за хвилею вперед до Dire фонтану). Має червоніти сильніше.
+        var withTrail = DangerZoneModel.ComputeDangerDynamic(
+            wx: 3000, wy: 3000, side: PlayerSide.Radiant, gameTime: 600f,
+            enemyCreepBeyond: 1.0f);
+        var baseline = DangerZoneModel.ComputeDangerDynamic(
+            wx: 3000, wy: 3000, side: PlayerSide.Radiant, gameTime: 600f);
+        Assert.True(withTrail > baseline + 0.10f,
+            $"creep beyond trail must boost danger: with={withTrail:F3} vs base={baseline:F3}");
+    }
+
+    [Fact]
+    public void V181_CreepBeyond_ZeroSignal_NoEffect()
+    {
+        // enemyCreepBeyond=0 (точка не в конусі жодного крипа) → без впливу.
+        var withZero = DangerZoneModel.ComputeDangerDynamic(
+            wx: 0, wy: 0, side: PlayerSide.Radiant, gameTime: 600f,
+            enemyCreepBeyond: 0f);
+        var baseline = DangerZoneModel.ComputeDangerDynamic(
+            wx: 0, wy: 0, side: PlayerSide.Radiant, gameTime: 600f);
+        Assert.Equal(baseline, withZero);
+    }
+
+    [Fact]
+    public void V181_SampleCreepBeyond_ForwardCone_HitsAndMisses()
+    {
+        // Крип у точці (0,0). Ворожий фонтан у (7000,7000), наш у (-7000,-7000).
+        // Sample у (3000,3000) має бути IN-cone (forward по діагоналі). У (-3000,-3000) — позаду крипа.
+        var snap = new D2Helper.Core.Models.EnemyPresenceSnapshot(System.Array.Empty<D2Helper.Core.Models.EnemyDot>())
+        {
+            CreepDots = new[] { new D2Helper.Core.Models.EnemyDot(0f, 0f, 0f, Weight: 0.3f) }
+        };
+        float ahead = snap.SampleCreepBeyond(3000f, 3000f, 7000f, 7000f, -7000f, -7000f);
+        float behind = snap.SampleCreepBeyond(-3000f, -3000f, 7000f, 7000f, -7000f, -7000f);
+        float sideOff = snap.SampleCreepBeyond(3000f, -3000f, 7000f, 7000f, -7000f, -7000f); // лятерально далеко
+        Assert.True(ahead > 0.05f, $"ahead must trigger trail, got {ahead:F3}");
+        Assert.Equal(0f, behind);
+        Assert.True(sideOff < ahead * 0.5f, $"lateral-off must be weaker: ahead={ahead:F3}, sideOff={sideOff:F3}");
+    }
 }

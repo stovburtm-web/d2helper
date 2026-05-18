@@ -143,4 +143,65 @@ public sealed class EnemyPresenceSnapshot
         }
         return sum;
     }
+
+    /// <summary>
+    /// V1.8.1: directional «creep trail» — лейн-equilibrium-сигнал.
+    /// Для кожного ворожого крипа будуємо конус, що тягнеться ВІД крипа В НАПРЯМКУ ворожого
+    /// фонтану. Точки в цьому конусі (тобто «за хвилею з точки зору гравця, ближче до бази
+    /// ворога») отримують позитивний внесок — там може фармити ворожий керрі а саппорти
+    /// чатують у джунглях. Точки «позаду крипа» (між крипом і нашим фонтаном) НЕ отримують
+    /// внеску (їх покриває <see cref="SampleCreepLocal"/> як safety hint).
+    ///
+    /// Параметри: forward window 200..6000 unit (не до самої бази, щоб не перебивати T3 aura),
+    /// бокова ширина σ=2000 (приблизно лейн + прилеглий ліс).
+    /// </summary>
+    /// <param name="wx">Sample world X.</param>
+    /// <param name="wy">Sample world Y.</param>
+    /// <param name="enemyFountainX">World X ворожого фонтану (≈ ±7000).</param>
+    /// <param name="enemyFountainY">World Y ворожого фонтану (≈ ±7000).</param>
+    /// <param name="ownFountainX">World X нашого фонтану (для нормалізації напрямку).</param>
+    /// <param name="ownFountainY">World Y нашого фонтану.</param>
+    public float SampleCreepBeyond(float wx, float wy,
+        float enemyFountainX, float enemyFountainY,
+        float ownFountainX, float ownFountainY)
+    {
+        if (CreepDots.Count == 0) return 0f;
+        // Напрямок «уперед» = від нашого фонтану до ворожого (нормалізований).
+        float fdx = enemyFountainX - ownFountainX;
+        float fdy = enemyFountainY - ownFountainY;
+        float flen = (float)Math.Sqrt(fdx * fdx + fdy * fdy);
+        if (flen < 1f) return 0f;
+        float fx = fdx / flen;
+        float fy = fdy / flen;
+
+        const float forwardMin = 200f;
+        const float forwardMax = 6000f;
+        const float lateralSigma = 2000f;
+        const float lateralSigma2 = lateralSigma * lateralSigma * 0.5f;
+
+        float sum = 0f;
+        foreach (var d in CreepDots)
+        {
+            float dx = wx - d.Wx;
+            float dy = wy - d.Wy;
+            // Проєкція на напрямок «уперед» (forward) і перпендикуляр (lateral).
+            float forward = dx * fx + dy * fy;
+            if (forward < forwardMin || forward > forwardMax) continue;
+            float latX = dx - forward * fx;
+            float latY = dy - forward * fy;
+            float lat2 = latX * latX + latY * latY;
+            if (lat2 > lateralSigma2 * 9f) continue;
+
+            float lateralFalloff = (float)Math.Exp(-lat2 / lateralSigma2);
+            // Forward falloff: плавно наростає 200→1500, тримається до 4500, спадає до 6000.
+            float forwardFalloff;
+            if (forward < 1500f) forwardFalloff = (forward - forwardMin) / (1500f - forwardMin);
+            else if (forward > 4500f) forwardFalloff = 1f - (forward - 4500f) / (forwardMax - 4500f);
+            else forwardFalloff = 1f;
+            if (forwardFalloff < 0f) forwardFalloff = 0f;
+
+            sum += d.Weight * lateralFalloff * forwardFalloff;
+        }
+        return sum;
+    }
 }
