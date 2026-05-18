@@ -97,4 +97,36 @@ public class DangerZoneModelTests
         Assert.True(ownJungleSafe < ownJungleBase,
             $"own jungle with absence=1 should drop below base ({ownJungleBase:F3}), got {ownJungleSafe:F3}");
     }
+
+    [Fact]
+    public void EarlyGame_EnemyTowerZone_StaysAtLeastYellow_DespiteAbsence()
+    {
+        // V1.6.1: на 0..6хв ворожі вежі стоять. Навіть якщо всі вороги купкою у фонтані
+        // (absence≈1 на T1 bot), зона ворожого T1 НЕ має падати в зелене (< 0.38).
+        // Tower aggression — фізична загроза, не залежна від присутності героїв.
+        var enemyT1BotForDire = DangerZoneModel.ComputeDangerDynamic(
+            wx: 5000, wy: -6000, side: PlayerSide.Dire, gameTime: 1f,
+            absenceScore: 1f);
+        Assert.True(enemyT1BotForDire >= 0.38f,
+            $"Dire's view of Radiant T1 bot at 0:01 should stay yellow+ even with absence=1, got {enemyT1BotForDire:F3}");
+
+        // Pure base без presence — для порівняння (тоді що floor працює).
+        var pureBase = DangerZoneModel.ComputeDanger(5000, -6000, PlayerSide.Dire, 1f);
+        Assert.True(enemyT1BotForDire >= pureBase * 0.75f,
+            $"floor should be ≥75% of base on early game, base={pureBase:F3}, got={enemyT1BotForDire:F3}");
+    }
+
+    [Fact]
+    public void LateGame_DeepPush_AbsenceCanStillCrushDeepEnemyZone()
+    {
+        // На late game (25+хв) при confirmed absence (5-ка пушить мід — bot deep пустий)
+        // floor слабкий → можна показати "відносно безпечно" в bot Dire jungle коли там
+        // справді нікого. Yellow допустимо, але не deep red.
+        var lateGameAbsent = DangerZoneModel.ComputeDangerDynamic(
+            wx: 5000, wy: -3000, side: PlayerSide.Radiant, gameTime: 1800f,
+            absenceScore: 1f);
+        var lateGameBase = DangerZoneModel.ComputeDanger(5000, -3000, PlayerSide.Radiant, 1800f);
+        Assert.True(lateGameAbsent < lateGameBase * 0.6f,
+            $"late game absence should crush significantly below base ({lateGameBase:F3}), got {lateGameAbsent:F3}");
+    }
 }

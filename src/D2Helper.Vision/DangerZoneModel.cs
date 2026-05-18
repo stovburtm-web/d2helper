@@ -203,6 +203,20 @@ public static class DangerZoneModel
             // близький до 0 → absence автоматично 0 на фонтані. Якщо вороги дійсно деінде —
             // решта мапи (mid, jungle, ворожі лайни поза фонтаном) природно крушиться.
             danger *= 1f - absenceScore * absenceWeight;
+
+            // V1.6.1: ворожа зона (base ≥ 0.5) має tower aggression — не можна крушити в зелене.
+            // Floor лінійно слабшає з ходом гри: на early game (всі вежі стоять) — 80% від base,
+            // на late game (T1/T2 падають, push deep можливий) — 30% від base.
+            if (baseDanger >= 0.5f)
+            {
+                float t;
+                if (gameTime < 360f)      t = 0f;                                   // 0..6хв: floor=80%
+                else if (gameTime < 1500f) t = (gameTime - 360f) / 1140f;           // 6..25хв: лінійно
+                else                      t = 1f;                                   // 25+хв: floor=30%
+                float floorWeight = 0.80f + (0.30f - 0.80f) * t;                    // 0.80 → 0.30
+                float floor = baseDanger * floorWeight;
+                if (danger < floor) danger = floor;
+            }
         }
 
         // V1.4: friendly control — союзні герої/крепи поряд → загроза знижується.

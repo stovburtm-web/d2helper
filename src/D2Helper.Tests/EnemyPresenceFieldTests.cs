@@ -101,13 +101,18 @@ public class EnemyPresenceFieldTests
         Assert.True(ownWithAbsence < ownBase - 0.05f,
             $"own zone with absence=1 should drop; was {ownBase}, now {ownWithAbsence}");
 
-        // Випадок Б: Dire highground БЕЗ presence-інфо + absence=1 — теж знижується
-        // (бо вороги підтверджено деінде, цей куток порожній). Це фіча V1.6.
+        // Випадок Б: Dire highground БЕЗ presence-інфо + absence=1 — знижується АЛЕ
+        // не до зеленого (V1.6.1 floor: tower aggression тримає мінімум). На gameTime=600
+        // floor ≈ 0.70 * base. Має бути нижче за base, але вище ~0.55.
+        var enemyBase = DangerZoneModel.ComputeDangerDynamic(
+            wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600);
         var enemyWithAbsenceOnly = DangerZoneModel.ComputeDangerDynamic(
             wx: 5500, wy: 5500, side: PlayerSide.Radiant, gameTime: 600,
             absenceScore: 1.0f);
-        Assert.True(enemyWithAbsenceOnly < 0.5f,
-            $"enemy highground with confirmed absence should drop; got {enemyWithAbsenceOnly}");
+        Assert.True(enemyWithAbsenceOnly < enemyBase,
+            $"enemy HG with absence drops below base ({enemyBase:F3}); got {enemyWithAbsenceOnly:F3}");
+        Assert.True(enemyWithAbsenceOnly > 0.55f,
+            $"enemy HG at mid-game with floor — should not be safe; got {enemyWithAbsenceOnly:F3}");
 
         // Випадок В: Dire highground З presenceLocal (вороги саме там) → лишається червоним
         // навіть якщо absenceScore (метрика "всі купкою деінде") теж високий.
